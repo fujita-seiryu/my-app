@@ -1,0 +1,279 @@
+:root {
+  --bg: #121316;
+  --panel: #1c1e22;
+  --panel-2: #24272c;
+  --border: #33363c;
+  --text: #f2f3f5;
+  --text-dim: #9a9ea6;
+  --green: #3ddc84;
+  --yellow: #ffcf40;
+  --red: #ff4d4d;
+  --pink: #ff5fa2;
+  --accent-beat: #ffcf40;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Hiragino Sans", "Yu Gothic", "Segoe UI", sans-serif;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.app {
+  min-height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top) 14px env(safe-area-inset-bottom);
+  position: relative;
+}
+
+/* ---------- header ---------- */
+.settings {
+  display: flex;
+  gap: 10px;
+  padding: 12px 2px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.setting-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.setting-item label {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.setting-item select {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 6px;
+  font-size: 15px;
+}
+
+/* ---------- mic overlay ---------- */
+.mic-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(18, 19, 22, 0.96);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  z-index: 10;
+  border-radius: 12px;
+}
+.mic-overlay.hidden { display: none; }
+.mic-start-btn {
+  background: var(--green);
+  color: #0b1a10;
+  border: none;
+  border-radius: 999px;
+  padding: 16px 28px;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.mic-hint { color: var(--text-dim); font-size: 13px; }
+
+/* ---------- tuner ---------- */
+.tuner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 18px;
+}
+
+/* ---------- note ring (VT-12式: 12音ボタン + 中央矢印) ---------- */
+.note-ring {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+}
+
+.ring-note {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  background: var(--panel);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  transform: translate(-50%, -50%);
+  transition: background 120ms ease-out, color 120ms ease-out, transform 120ms ease-out, box-shadow 120ms ease-out;
+}
+.ring-note.in-scale {
+  color: var(--text);
+  border: 2px solid var(--green);
+  box-shadow: 0 0 6px 1px rgba(61, 220, 132, 0.5);
+}
+.ring-note.active {
+  transform: translate(-50%, -50%) scale(1.15);
+  font-weight: 700;
+}
+.ring-note.active.oct-base {
+  background: var(--red);
+  color: #fff;
+  border-color: var(--red);
+  box-shadow: 0 0 14px 2px rgba(255, 77, 77, 0.7);
+}
+.ring-note.active.oct-above {
+  background: var(--pink);
+  color: #3a0620;
+  border-color: var(--pink);
+  box-shadow: 0 0 14px 2px rgba(255, 95, 162, 0.7);
+}
+.ring-note.active.oct-below {
+  background: var(--yellow);
+  color: #3a2c00;
+  border-color: var(--yellow);
+  box-shadow: 0 0 14px 2px rgba(255, 207, 64, 0.7);
+}
+
+.ring-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.arrow-row {
+  display: flex;
+  gap: 10px;
+}
+.arrow {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--panel-2);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  transition: background 120ms ease-out, color 120ms ease-out, box-shadow 120ms ease-out;
+}
+.arrow.lit {
+  background: var(--green);
+  color: #0b1a10;
+  border-color: var(--green);
+  box-shadow: 0 0 10px 1px rgba(61, 220, 132, 0.7);
+}
+
+.center-readout {
+  text-align: center;
+}
+.note-name {
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1;
+  transition: color 150ms ease-out;
+}
+.sub-readout {
+  color: var(--text-dim);
+  font-size: 14px;
+  margin-top: 4px;
+}
+.dot-sep { margin: 0 4px; }
+
+/* ---------- mic level ---------- */
+.mic-level-row {
+  width: 100%;
+  max-width: 260px;
+  margin-top: 18px;
+}
+.mic-level-track {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+.mic-level-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--green);
+  transition: width 60ms linear;
+}
+
+/* ---------- metronome ---------- */
+.metronome {
+  border-top: 1px solid var(--border);
+  padding: 14px 2px calc(14px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.metro-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.metro-row label {
+  font-size: 12px;
+  color: var(--text-dim);
+  width: 34px;
+}
+#bpmSlider { flex: 1; accent-color: var(--green); }
+#bpmInput {
+  width: 58px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+  font-size: 15px;
+  text-align: center;
+}
+.beat-row { justify-content: center; }
+.beat-dots {
+  display: flex;
+  gap: 8px;
+}
+.beat-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  transition: background 60ms, transform 60ms;
+}
+.beat-dot.accent { border-color: var(--accent-beat); }
+.beat-dot.on { background: var(--green); transform: scale(1.15); }
+.beat-dot.accent.on { background: var(--accent-beat); }
+
+.metro-toggle {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.metro-toggle.running {
+  background: var(--red);
+  color: #1a0b0b;
+  border-color: var(--red);
+}

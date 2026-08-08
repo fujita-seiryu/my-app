@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#121316" />
+<title>移動ドピッチトレーナー</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="app">
+
+  <!-- 上部: 基準音・調 設定 -->
+  <header class="settings">
+    <div class="setting-item">
+      <label for="baseNote">基準音</label>
+      <select id="baseNote"></select>
+    </div>
+    <div class="setting-item">
+      <label for="scaleType">調</label>
+      <select id="scaleType">
+        <option value="major">長調</option>
+        <option value="minor">短調</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- マイク開始前オーバーレイ -->
+  <div id="micOverlay" class="mic-overlay">
+    <button id="micStartBtn" class="mic-start-btn">🎤 マイクを開始</button>
+    <p class="mic-hint">タップしてマイクへのアクセスを許可してください</p>
+  </div>
+
+  <!-- メイン: VT-12式 音名リング + フラット/シャープ矢印 -->
+  <main class="tuner">
+    <div id="noteRing" class="note-ring">
+      <div class="ring-center">
+        <div class="arrow-row">
+          <span id="flatArrow" class="arrow flat">♭ ◀</span>
+          <span id="sharpArrow" class="arrow sharp">▶ #</span>
+        </div>
+        <div class="center-readout">
+          <div id="noteName" class="note-name">‐</div>
+          <div class="sub-readout">
+            <span id="centValue">0¢</span>
+            <span class="dot-sep">・</span>
+            <span id="freqValue">0.0Hz</span>
+          </div>
+        </div>
+      </div>
+      <!-- 12半音のリングボタンは script.js が動的生成 -->
+    </div>
+
+    <div class="mic-level-row">
+      <div class="mic-level-track"><div id="micLevelBar" class="mic-level-bar"></div></div>
+    </div>
+  </main>
+
+  <!-- 下部: メトロノーム -->
+  <footer class="metronome">
+    <div class="metro-row">
+      <label for="bpmInput">拍速</label>
+      <input type="range" id="bpmSlider" min="40" max="240" value="92" step="1" />
+      <input type="number" id="bpmInput" min="40" max="240" value="92" step="1" />
+    </div>
+    <div class="metro-row beat-row">
+      <div id="beatDots" class="beat-dots"></div>
+    </div>
+    <button id="metroToggle" class="metro-toggle">開始</button>
+  </footer>
+
+</div>
+<script src="script.js"></script>
+</body>
+</html>
