@@ -10,6 +10,16 @@
 <body>
 <div class="app">
 
+  <!-- 購入者用ロック画面: 合言葉を入力するまでアプリを利用できない -->
+  <div id="lockOverlay" class="lock-overlay">
+    <div class="lock-box">
+      <p class="lock-title">🔒 合言葉を入力してください</p>
+      <input type="text" id="lockCodeInput" class="lock-input" placeholder="合言葉" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <button id="lockSubmitBtn" class="lock-submit-btn" type="button">解除</button>
+      <p id="lockError" class="lock-error"></p>
+    </div>
+  </div>
+
   <!-- 上部: 基準音・調 設定 -->
   <header class="settings">
     <div class="setting-item">
