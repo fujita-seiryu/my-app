@@ -25,6 +25,23 @@
     </div>
   </header>
 
+  <!-- 詳細設定: 検出感度・再生音量（端末ごとに調整して保存） -->
+  <div class="adv-settings">
+    <button id="advSettingsToggle" class="adv-settings-toggle" type="button">⚙ 詳細設定</button>
+    <div id="advSettingsPanel" class="adv-settings-panel hidden">
+      <div class="adv-row">
+        <label for="sensitivitySlider">検出感度</label>
+        <input type="range" id="sensitivitySlider" min="1" max="10" value="6" step="1" />
+        <span id="sensitivityValue" class="adv-value">6</span>
+      </div>
+      <div class="adv-row">
+        <label for="volumeSlider">再生音量</label>
+        <input type="range" id="volumeSlider" min="0" max="100" value="30" step="5" />
+        <span id="volumeValue" class="adv-value">30%</span>
+      </div>
+    </div>
+  </div>
+
   <!-- マイク開始前オーバーレイ -->
   <div id="micOverlay" class="mic-overlay">
     <button id="micStartBtn" class="mic-start-btn">🎤 マイクを開始</button>
