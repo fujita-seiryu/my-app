@@ -107,6 +107,61 @@ html, body {
   flex-shrink: 0;
 }
 
+/* ---------- lock overlay (購入者向け合言葉ロック) ---------- */
+.lock-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 19, 22, 0.98);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+.lock-overlay.hidden { display: none; }
+.lock-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  max-width: 300px;
+  width: 100%;
+}
+.lock-title {
+  font-size: 16px;
+  color: var(--text);
+  text-align: center;
+  margin: 0;
+}
+.lock-input {
+  width: 100%;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 16px;
+  text-align: center;
+  user-select: text;
+}
+.lock-submit-btn {
+  width: 100%;
+  background: var(--green);
+  color: #0b1a10;
+  border: none;
+  border-radius: 999px;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.lock-error {
+  color: var(--red);
+  font-size: 13px;
+  min-height: 16px;
+  margin: 0;
+}
+
 /* ---------- mic overlay ---------- */
 .mic-overlay {
   position: absolute;
