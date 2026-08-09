@@ -5,20 +5,20 @@
    ========================================================= */
 
 // 基準音（音名）12種類。半音= Cからの半音数。標準ピアノの全音/半音配置に沿って並べる
-// ホ-ヘ間、ロ-ハ間はもともと半音のため「嬰ホ」「嬰ロ」は存在しない
+// ホ-ヘ間、ロ-ハ間はもともと半音のため「ホ#」「ロ#」は存在しない
 const NOTE_NAMES = [
   { label: "イ", semitone: 9 },
-  { label: "嬰イ", semitone: 10 },
+  { label: "イ#", semitone: 10 },
   { label: "ロ", semitone: 11 },
   { label: "ハ", semitone: 0 },
-  { label: "嬰ハ", semitone: 1 },
+  { label: "ハ#", semitone: 1 },
   { label: "ニ", semitone: 2 },
-  { label: "嬰ニ", semitone: 3 },
+  { label: "ニ#", semitone: 3 },
   { label: "ホ", semitone: 4 },
   { label: "ヘ", semitone: 5 },
-  { label: "嬰ヘ", semitone: 6 },
+  { label: "ヘ#", semitone: 6 },
   { label: "ト", semitone: 7 },
-  { label: "嬰ト", semitone: 8 },
+  { label: "ト#", semitone: 8 },
 ];
 const DEFAULT_NOTE_INDEX = NOTE_NAMES.findIndex((n) => n.label === "ハ");
 
