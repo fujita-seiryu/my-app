@@ -57,10 +57,20 @@ const DEFAULT_BASE_INDEX = BASE_NOTES.findIndex((n) => n.label === "ハ");
 const C4_FREQ = 261.6255653005986;
 
 // ピッチ検出パラメータ（声域全体をカバーするため広めに設定。声域外はここで自然にカットされる）
-const RMS_THRESHOLD = 0.01;
+// RMS_THRESHOLD（マイク感度の音量ゲート）は端末差が大きいため、詳細設定スライダーで可変にする
 const CLARITY_THRESHOLD = 0.35;
 const MIN_VOICE_FREQ = 55;
 const MAX_VOICE_FREQ = 1100;
+
+// 検出感度スライダー（1=低感度～10=高感度）とRMS_THRESHOLDの対応
+const SENSITIVITY_MIN = 1;
+const SENSITIVITY_MAX = 10;
+const DEFAULT_SENSITIVITY = 6; // 従来のRMS_THRESHOLD=0.01相当
+const DEFAULT_PLAYBACK_VOLUME = 30; // %。従来の再生ゲイン0.3相当
+
+function computeRmsThreshold(sensitivity) {
+  return 0.02 - (sensitivity - 1) * 0.002;
+}
 
 /* =========================================================
    状態
@@ -77,6 +87,8 @@ const state = {
   degreeCandidate: -1,
   degreeCandidateCount: 0,
   smoothedCents: 0,
+  rmsThreshold: computeRmsThreshold(DEFAULT_SENSITIVITY),
+  playbackVolume: DEFAULT_PLAYBACK_VOLUME / 100,
   metro: {
     running: false,
     bpm: 92,
@@ -110,6 +122,12 @@ const el = {
   bpmInput: document.getElementById("bpmInput"),
   beatDots: document.getElementById("beatDots"),
   metroToggle: document.getElementById("metroToggle"),
+  advSettingsToggle: document.getElementById("advSettingsToggle"),
+  advSettingsPanel: document.getElementById("advSettingsPanel"),
+  sensitivitySlider: document.getElementById("sensitivitySlider"),
+  sensitivityValue: document.getElementById("sensitivityValue"),
+  volumeSlider: document.getElementById("volumeSlider"),
+  volumeValue: document.getElementById("volumeValue"),
 };
 
 /* =========================================================
@@ -210,7 +228,7 @@ function autoCorrelate(buf, sampleRate) {
   let rms = 0;
   for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
   rms = Math.sqrt(rms / SIZE);
-  if (rms < RMS_THRESHOLD) return -1;
+  if (rms < state.rmsThreshold) return -1;
 
   const minLag = Math.floor(sampleRate / MAX_VOICE_FREQ);
   const maxLag = Math.min(Math.ceil(sampleRate / MIN_VOICE_FREQ), SIZE - 2);
@@ -340,7 +358,7 @@ function playDegreePreview(degreeIndex) {
 
   const now = ctx.currentTime;
   gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(0.3, now + 0.015);
+  gain.gain.linearRampToValueAtTime(state.playbackVolume, now + 0.015);
 
   osc.connect(gain);
   gain.connect(ctx.destination);
@@ -359,6 +377,68 @@ function stopDegreePreview() {
   gain.gain.linearRampToValueAtTime(0, now + 0.08);
   osc.stop(now + 0.09);
   activePreview = null;
+}
+
+/* =========================================================
+   詳細設定（検出感度・再生音量。端末ごとにlocalStorageへ保存）
+   ========================================================= */
+
+const SETTINGS_STORAGE_KEY = "vt12_settings_v1";
+
+function loadUserSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveUserSettings() {
+  try {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        sensitivity: Number(el.sensitivitySlider.value),
+        volume: Number(el.volumeSlider.value),
+      })
+    );
+  } catch {
+    // localStorageが使えない環境では保存をあきらめる
+  }
+}
+
+function applySensitivity(sliderValue) {
+  state.rmsThreshold = computeRmsThreshold(sliderValue);
+  el.sensitivityValue.textContent = String(sliderValue);
+}
+
+function applyPlaybackVolume(sliderValue) {
+  state.playbackVolume = sliderValue / 100;
+  el.volumeValue.textContent = `${sliderValue}%`;
+}
+
+function initAdvSettings() {
+  const saved = loadUserSettings();
+  const sensitivity = saved && saved.sensitivity ? saved.sensitivity : DEFAULT_SENSITIVITY;
+  const volume = saved && saved.volume != null ? saved.volume : DEFAULT_PLAYBACK_VOLUME;
+
+  el.sensitivitySlider.value = String(sensitivity);
+  el.volumeSlider.value = String(volume);
+  applySensitivity(sensitivity);
+  applyPlaybackVolume(volume);
+
+  el.advSettingsToggle.addEventListener("click", () => {
+    el.advSettingsPanel.classList.toggle("hidden");
+  });
+  el.sensitivitySlider.addEventListener("input", () => {
+    applySensitivity(Number(el.sensitivitySlider.value));
+    saveUserSettings();
+  });
+  el.volumeSlider.addEventListener("input", () => {
+    applyPlaybackVolume(Number(el.volumeSlider.value));
+    saveUserSettings();
+  });
 }
 
 /* =========================================================
@@ -498,6 +578,7 @@ function init() {
   buildBeatDots();
   el.metroToggle.disabled = true;
   wireEvents();
+  initAdvSettings();
 }
 
 init();
