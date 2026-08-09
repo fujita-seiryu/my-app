@@ -337,8 +337,6 @@ function pitchLoop() {
    ========================================================= */
 
 let activePreview = null; // { osc, gain }
-let previewDestination = null;
-let previewAudioEl = null;
 
 function ensureAudioCtx() {
   if (!state.audioCtx) {
@@ -352,33 +350,9 @@ function ensureAudioCtx() {
   return state.audioCtx;
 }
 
-// iOSのSafariは AudioContext.destination に直接鳴らす音を「システム音」的に扱い、
-// 音量の上限を低く抑えることがある。<audio>要素経由の再生に見せかけることで
-// 「メディア再生」として扱わせ、音量上限を引き上げる（消音スイッチの影響も受けにくくなる）
-function ensurePreviewAudioSink(ctx) {
-  if (!previewDestination) {
-    previewDestination = ctx.createMediaStreamDestination();
-  }
-  if (!previewAudioEl) {
-    previewAudioEl = document.createElement("audio");
-    previewAudioEl.autoplay = true;
-    previewAudioEl.playsInline = true;
-    previewAudioEl.srcObject = previewDestination.stream;
-    previewAudioEl.style.display = "none";
-    document.body.appendChild(previewAudioEl);
-  }
-  const playPromise = previewAudioEl.play();
-  if (playPromise && typeof playPromise.catch === "function") {
-    playPromise.catch(() => {});
-  }
-  return previewDestination;
-}
-
 function playDegreePreview(degreeIndex) {
   const ctx = ensureAudioCtx();
   stopDegreePreview();
-
-  const destination = ensurePreviewAudioSink(ctx);
 
   const freq = state.baseFreq * Math.pow(2, degreeIndex / 12);
   const osc = ctx.createOscillator();
@@ -391,7 +365,7 @@ function playDegreePreview(degreeIndex) {
   gain.gain.linearRampToValueAtTime(state.playbackVolume, now + 0.015);
 
   osc.connect(gain);
-  gain.connect(destination);
+  gain.connect(ctx.destination);
   osc.start(now);
 
   activePreview = { osc, gain };
