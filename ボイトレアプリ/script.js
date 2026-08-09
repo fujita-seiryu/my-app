@@ -4,23 +4,9 @@
    定数・音名データ
    ========================================================= */
 
-// 移動ド（クロマチック12音）。短調（御詠歌）では半音位置3が「ミ#」、8が「ラ#」と表示名が変わる
-const CHROMATIC_JP = ["ド", "ド#", "レ", "レ#", "ミ", "ファ", "ファ#", "ソ", "ソ#", "ラ", "ラ#", "シ"];
-
-// 長調・短調のスケール構成音（基準音からの半音数）。短調は御詠歌の音階（ド・レ・ミ・ミ#・ファ・ソ・ラ・ラ#・シ）
-const MAJOR_STEPS = [0, 2, 4, 5, 7, 9, 11];
-const MINOR_STEPS = [0, 2, 3, 4, 5, 7, 8, 9, 11];
-
-function getDegreeLabel(degreeIndex) {
-  if (state.scaleType === "minor") {
-    if (degreeIndex === 3) return "ミ#";
-    if (degreeIndex === 8) return "ラ#";
-  }
-  return CHROMATIC_JP[degreeIndex];
-}
-
-// イロハニホヘト基準音（半音= Cからの半音数）。標準ピアノの全音/半音配置に沿って並べる
-const BASE_NOTES_CORE = [
+// 基準音（音名）12種類。半音= Cからの半音数。標準ピアノの全音/半音配置に沿って並べる
+// ホ-ヘ間、ロ-ハ間はもともと半音のため「嬰ホ」「嬰ロ」は存在しない
+const NOTE_NAMES = [
   { label: "イ", semitone: 9 },
   { label: "嬰イ", semitone: 10 },
   { label: "ロ", semitone: 11 },
@@ -34,27 +20,31 @@ const BASE_NOTES_CORE = [
   { label: "ト", semitone: 7 },
   { label: "嬰ト", semitone: 8 },
 ];
+const DEFAULT_NOTE_INDEX = NOTE_NAMES.findIndex((n) => n.label === "ハ");
 
-// 男女の声域差に対応するため、各基準音を4オクターブ（低音２段階/基準/高音）で選択できるようにする
-// 「ーー」は一般的な男性キー相当（基準からさらに1オクターブ下）を想定
-const OCTAVE_VARIANTS = [
-  { suffix: "ーー", octaveShift: -2 },
-  { suffix: "ー", octaveShift: -1 },
-  { suffix: "", octaveShift: 0 },
-  { suffix: "＋", octaveShift: 1 },
+// オクターブ層：無印／ー（1つ下）／ーー（2つ下）の3段階
+// 「無印」は御詠歌の楽譜上の基準（記譜音）、「ー」はおおむね女性キー、「ーー」はおおむね男性キー相当
+const OCTAVE_LAYERS = [
+  { label: "無印", shift: 0 },
+  { label: "ー", shift: -1 },
+  { label: "ーー", shift: -2 },
 ];
+const DEFAULT_OCTAVE_INDEX = 0;
 
-const BASE_NOTES = [];
-BASE_NOTES_CORE.forEach((core) => {
-  OCTAVE_VARIANTS.forEach((variant) => {
-    BASE_NOTES.push({
-      label: core.label + variant.suffix,
-      semitone: core.semitone,
-      octaveShift: variant.octaveShift,
-    });
-  });
-});
-const DEFAULT_BASE_INDEX = BASE_NOTES.findIndex((n) => n.label === "ハ");
+// 円形メーターの9区画（実機シールを再現。長調・短調の区別はなく常にこの1パターン）
+// 画面上の配置順（時計回り、12時=ミ/ファの継ぎ目）: ファ→ソ→ラ#→ラ→シ→ド→レ→ミ#→ミ
+// ミ#とファは異名同音（同じsemitone）：検出時に両方同時点灯させるため、あえて別区画として持つ
+const NINE_POSITIONS = [
+  { label: "ファ", semitone: 5 },
+  { label: "ソ", semitone: 7 },
+  { label: "ラ#", semitone: 10 },
+  { label: "ラ", semitone: 9 },
+  { label: "シ", semitone: 11 },
+  { label: "ド", semitone: 0 },
+  { label: "レ", semitone: 2 },
+  { label: "ミ#", semitone: 5 },
+  { label: "ミ", semitone: 4 },
+];
 
 const C4_FREQ = 261.6255653005986;
 
@@ -87,10 +77,9 @@ const state = {
   analyser: null,
   timeDomainBuf: null,
   baseFreq: C4_FREQ,
-  scaleType: "major",
-  displayedDegree: -1,
+  displayedDegreeIndices: [], // NINE_POSITIONS内でハイライト中のインデックス（ミ#/ファ同時ヒット時は2つ）
   displayedOctaveBand: "base",
-  degreeCandidate: -1,
+  degreeCandidate: null, // ちらつき防止の安定判定キー（実音のsemitone値＝オクターブ込み）
   degreeCandidateCount: 0,
   smoothedCents: 0,
   rmsThreshold: computeRmsThreshold(DEFAULT_SENSITIVITY),
@@ -114,7 +103,7 @@ const SCHEDULE_AHEAD_SEC = 0.1;
 
 const el = {
   baseNote: document.getElementById("baseNote"),
-  scaleType: document.getElementById("scaleType"),
+  octaveLayer: document.getElementById("octaveLayer"),
   micOverlay: document.getElementById("micOverlay"),
   micStartBtn: document.getElementById("micStartBtn"),
   flatArrow: document.getElementById("flatArrow"),
@@ -145,41 +134,53 @@ const el = {
    ========================================================= */
 
 function buildBaseNoteOptions() {
-  BASE_NOTES.forEach((note, i) => {
+  NOTE_NAMES.forEach((note, i) => {
     const opt = document.createElement("option");
     opt.value = String(i);
     opt.textContent = note.label;
     el.baseNote.appendChild(opt);
   });
-  el.baseNote.value = String(DEFAULT_BASE_INDEX);
+  el.baseNote.value = String(DEFAULT_NOTE_INDEX);
+}
+
+function buildOctaveLayerOptions() {
+  OCTAVE_LAYERS.forEach((layer, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = layer.label;
+    el.octaveLayer.appendChild(opt);
+  });
+  el.octaveLayer.value = String(DEFAULT_OCTAVE_INDEX);
 }
 
 function computeBaseFreq() {
-  const idx = Number(el.baseNote.value);
-  const note = BASE_NOTES[idx];
-  state.baseFreq = C4_FREQ * Math.pow(2, note.semitone / 12) * Math.pow(2, note.octaveShift);
+  const note = NOTE_NAMES[Number(el.baseNote.value)];
+  const layer = OCTAVE_LAYERS[Number(el.octaveLayer.value)];
+  state.baseFreq = C4_FREQ * Math.pow(2, note.semitone / 12) * Math.pow(2, layer.shift);
 }
 
-// VT-12実機のように12音を円状に配置（i=0のドを12時位置、時計回り）
+// 実機シールのように9区画を円状に配置（12時=ミ/ファの継ぎ目、時計回りにファ→...→ミ）
 const RING_RADIUS_PERCENT = 39;
+const RING_START_ANGLE_DEG = -70; // ファの位置（12時から時計回りに20度）
+const RING_STEP_DEG = 40; // 360° / 9区画
 
 function buildNoteRing() {
   const ringCenter = el.noteRing.querySelector(".ring-center");
-  CHROMATIC_JP.forEach((_, i) => {
-    const angleDeg = -90 + i * 30;
+  NINE_POSITIONS.forEach((pos, i) => {
+    const angleDeg = RING_START_ANGLE_DEG + i * RING_STEP_DEG;
     const rad = (angleDeg * Math.PI) / 180;
     const x = 50 + RING_RADIUS_PERCENT * Math.cos(rad);
     const y = 50 + RING_RADIUS_PERCENT * Math.sin(rad);
 
     const note = document.createElement("div");
     note.className = "ring-note";
-    note.dataset.degree = String(i);
-    note.textContent = getDegreeLabel(i);
+    note.dataset.index = String(i);
+    note.textContent = pos.label;
     note.style.left = `${x}%`;
     note.style.top = `${y}%`;
     el.noteRing.insertBefore(note, ringCenter);
 
-    // タップしている間、その音階の基準ピッチをプレビュー再生する
+    // タップしている間、その区画の基準ピッチをプレビュー再生する
     note.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       note.classList.add("playing");
@@ -195,16 +196,13 @@ function buildNoteRing() {
   });
 }
 
-// オクターブ位置による点灯色: 基準オクターブ内=赤、1オクターブ以上上=ピンク、下回る=黄
-const BAND_COLOR_VARS = { base: "var(--red)", above: "var(--pink)", below: "var(--yellow)" };
+// オクターブ位置による点灯色: 基準オクターブ内=赤、上=青、下=黄
+const BAND_COLOR_VARS = { base: "var(--red)", above: "var(--blue)", below: "var(--yellow)" };
 
 function updateNoteRingHighlight() {
-  const steps = state.scaleType === "major" ? MAJOR_STEPS : MINOR_STEPS;
   const notes = el.noteRing.querySelectorAll(".ring-note");
   notes.forEach((note, i) => {
-    note.textContent = getDegreeLabel(i);
-    note.classList.toggle("in-scale", steps.includes(i));
-    const isActive = i === state.displayedDegree;
+    const isActive = state.displayedDegreeIndices.includes(i);
     note.classList.toggle("active", isActive);
     note.classList.toggle("oct-base", isActive && state.displayedOctaveBand === "base");
     note.classList.toggle("oct-above", isActive && state.displayedOctaveBand === "above");
@@ -274,6 +272,31 @@ function autoCorrelate(buf, sampleRate) {
 }
 
 /* =========================================================
+   9区画への割り当て判定（ミ#/ファ同時ヒット対応）
+   ========================================================= */
+
+// semitoneOffsetRaw（基準ドからの連続的な半音差）に対して、NINE_POSITIONS内で
+// 最も近い区画を探す。同距離の区画が複数あれば（＝ミ#とファがちょうど一致する場合）
+// 両方を返す。オクターブ違いも含めて広めに探索する。
+function matchNinePositions(semitoneOffsetRaw) {
+  let bestDist = Infinity;
+  let candidates = [];
+  for (let oct = -3; oct <= 3; oct++) {
+    NINE_POSITIONS.forEach((pos, i) => {
+      const candidate = pos.semitone + oct * 12;
+      const dist = Math.abs(semitoneOffsetRaw - candidate);
+      if (dist < bestDist - 1e-9) {
+        bestDist = dist;
+        candidates = [{ index: i, octave: oct, candidate }];
+      } else if (Math.abs(dist - bestDist) < 1e-9) {
+        candidates.push({ index: i, octave: oct, candidate });
+      }
+    });
+  }
+  return { candidates, bestDist };
+}
+
+/* =========================================================
    表示更新ループ
    ========================================================= */
 
@@ -284,7 +307,7 @@ function setNoSignalDisplay() {
   el.freqValue.textContent = "‐";
   el.flatArrow.classList.remove("lit");
   el.sharpArrow.classList.remove("lit");
-  state.displayedDegree = -1;
+  state.displayedDegreeIndices = [];
   updateNoteRingHighlight();
 }
 
@@ -296,28 +319,31 @@ function processPitch(freq) {
   }
 
   const semitoneOffsetRaw = 12 * Math.log2(freq / state.baseFreq);
-  const nearestSemitone = Math.round(semitoneOffsetRaw);
-  const cents = (semitoneOffsetRaw - nearestSemitone) * 100;
-  const degreeIndex = ((nearestSemitone % 12) + 12) % 12;
-  const octaveOffset = Math.floor(nearestSemitone / 12);
-  const octaveBand = octaveOffset === 0 ? "base" : octaveOffset > 0 ? "above" : "below";
+  const { candidates } = matchNinePositions(semitoneOffsetRaw);
+  const primary = candidates[0];
+  const cents = (semitoneOffsetRaw - primary.candidate) * 100;
+  const octaveBand = primary.octave === 0 ? "base" : primary.octave > 0 ? "above" : "below";
 
-  // ちらつき防止: 3フレーム連続で同じ音になったら表示を切り替える
-  if (degreeIndex === state.degreeCandidate) {
+  // ちらつき防止: 3フレーム連続で同じ音（実音のsemitone値）になったら表示を切り替える
+  const stabilityKey = primary.candidate;
+  if (stabilityKey === state.degreeCandidate) {
     state.degreeCandidateCount++;
   } else {
-    state.degreeCandidate = degreeIndex;
+    state.degreeCandidate = stabilityKey;
     state.degreeCandidateCount = 1;
   }
   if (state.degreeCandidateCount >= 3) {
-    state.displayedDegree = degreeIndex;
+    state.displayedDegreeIndices = candidates.map((c) => c.index);
     state.displayedOctaveBand = octaveBand;
   }
-  if (state.displayedDegree === -1) return;
+  if (state.displayedDegreeIndices.length === 0) return;
 
   state.smoothedCents = state.smoothedCents * 0.6 + cents * 0.4;
 
-  el.noteName.textContent = getDegreeLabel(state.displayedDegree);
+  const labelText = state.displayedDegreeIndices
+    .map((i) => NINE_POSITIONS[i].label)
+    .join("/");
+  el.noteName.textContent = labelText;
   el.noteName.style.color = BAND_COLOR_VARS[state.displayedOctaveBand];
   el.centValue.textContent = `${state.smoothedCents >= 0 ? "+" : ""}${Math.round(state.smoothedCents)}¢`;
   el.freqValue.textContent = `${freq.toFixed(1)}Hz`;
@@ -360,11 +386,12 @@ function ensureAudioCtx() {
   return state.audioCtx;
 }
 
-function playDegreePreview(degreeIndex) {
+function playDegreePreview(posIndex) {
   const ctx = ensureAudioCtx();
   stopDegreePreview();
 
-  const freq = state.baseFreq * Math.pow(2, degreeIndex / 12);
+  const semitone = NINE_POSITIONS[posIndex].semitone;
+  const freq = state.baseFreq * Math.pow(2, semitone / 12);
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = "sine";
@@ -606,10 +633,7 @@ function wireEvents() {
   el.micStartBtn.addEventListener("click", startMic);
 
   el.baseNote.addEventListener("change", computeBaseFreq);
-  el.scaleType.addEventListener("change", () => {
-    state.scaleType = el.scaleType.value;
-    updateNoteRingHighlight();
-  });
+  el.octaveLayer.addEventListener("change", computeBaseFreq);
 
   el.bpmSlider.addEventListener("input", () => {
     state.metro.bpm = Number(el.bpmSlider.value);
@@ -635,6 +659,7 @@ function wireEvents() {
 
 function init() {
   buildBaseNoteOptions();
+  buildOctaveLayerOptions();
   computeBaseFreq();
   buildNoteRing();
   updateNoteRingHighlight();
