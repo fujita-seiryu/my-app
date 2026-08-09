@@ -20,18 +20,15 @@
     </div>
   </div>
 
-  <!-- 上部: 基準音・調 設定 -->
+  <!-- 上部: 音名・オクターブ層 設定 -->
   <header class="settings">
     <div class="setting-item">
-      <label for="baseNote">基準音</label>
+      <label for="baseNote">音名</label>
       <select id="baseNote"></select>
     </div>
     <div class="setting-item">
-      <label for="scaleType">調</label>
-      <select id="scaleType">
-        <option value="major">長調</option>
-        <option value="minor">短調</option>
-      </select>
+      <label for="octaveLayer">オクターブ</label>
+      <select id="octaveLayer"></select>
     </div>
   </header>
 
@@ -58,7 +55,7 @@
     <p class="mic-hint">タップしてマイクへのアクセスを許可してください</p>
   </div>
 
-  <!-- メイン: VT-12式 音名リング + フラット/シャープ矢印 -->
+  <!-- メイン: 9分割シール式 音名リング + フラット/シャープ矢印 -->
   <main class="tuner">
     <div id="noteRing" class="note-ring">
       <div class="ring-center">
@@ -75,7 +72,7 @@
           </div>
         </div>
       </div>
-      <!-- 12半音のリングボタンは script.js が動的生成 -->
+      <!-- 9分割の階名リングボタンは script.js が動的生成 -->
     </div>
 
     <div class="mic-level-row">
