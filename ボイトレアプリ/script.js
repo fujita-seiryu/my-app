@@ -35,8 +35,10 @@ const BASE_NOTES_CORE = [
   { label: "嬰ト", semitone: 8 },
 ];
 
-// 男女の声域差に対応するため、各基準音を3オクターブ（低音/基準/高音）で選択できるようにする
+// 男女の声域差に対応するため、各基準音を4オクターブ（低音２段階/基準/高音）で選択できるようにする
+// 「ーー」は一般的な男性キー相当（基準からさらに1オクターブ下）を想定
 const OCTAVE_VARIANTS = [
+  { suffix: "ーー", octaveShift: -2 },
   { suffix: "ー", octaveShift: -1 },
   { suffix: "", octaveShift: 0 },
   { suffix: "＋", octaveShift: 1 },
