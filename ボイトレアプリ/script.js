@@ -68,6 +68,10 @@ const SENSITIVITY_MAX = 10;
 const DEFAULT_SENSITIVITY = 6; // 従来のRMS_THRESHOLD=0.01相当
 const DEFAULT_PLAYBACK_VOLUME = 30; // %。従来の再生ゲイン0.3相当
 
+// 購入者向け合言葉（軽い不正利用対策。BASEの購入完了メールで案内する）
+const ACCESS_CODE = "sonaeru-vt12";
+const LOCK_STORAGE_KEY = "vt12_unlocked_v1";
+
 function computeRmsThreshold(sensitivity) {
   return 0.02 - (sensitivity - 1) * 0.002;
 }
@@ -128,6 +132,10 @@ const el = {
   sensitivityValue: document.getElementById("sensitivityValue"),
   volumeSlider: document.getElementById("volumeSlider"),
   volumeValue: document.getElementById("volumeValue"),
+  lockOverlay: document.getElementById("lockOverlay"),
+  lockCodeInput: document.getElementById("lockCodeInput"),
+  lockSubmitBtn: document.getElementById("lockSubmitBtn"),
+  lockError: document.getElementById("lockError"),
 };
 
 /* =========================================================
@@ -446,6 +454,55 @@ function initAdvSettings() {
 }
 
 /* =========================================================
+   合言葉ロック画面（購入者向けの軽い不正利用対策）
+   ========================================================= */
+
+function isUnlocked() {
+  try {
+    return localStorage.getItem(LOCK_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function setUnlocked() {
+  try {
+    localStorage.setItem(LOCK_STORAGE_KEY, "1");
+  } catch {
+    // localStorageが使えない環境では毎回入力が必要になる
+  }
+}
+
+function tryUnlock() {
+  const value = el.lockCodeInput.value.trim();
+  if (value === ACCESS_CODE) {
+    setUnlocked();
+    el.lockOverlay.classList.add("hidden");
+    el.lockError.textContent = "";
+    init();
+  } else {
+    el.lockError.textContent = "合言葉が違います";
+    el.lockCodeInput.value = "";
+    el.lockCodeInput.focus();
+  }
+}
+
+function initLockScreen() {
+  if (isUnlocked()) {
+    el.lockOverlay.classList.add("hidden");
+    init();
+    return;
+  }
+
+  el.lockOverlay.classList.remove("hidden");
+  el.lockSubmitBtn.addEventListener("click", tryUnlock);
+  el.lockCodeInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") tryUnlock();
+  });
+  el.lockCodeInput.focus();
+}
+
+/* =========================================================
    マイク開始
    ========================================================= */
 
@@ -585,4 +642,4 @@ function init() {
   initAdvSettings();
 }
 
-init();
+initLockScreen();
