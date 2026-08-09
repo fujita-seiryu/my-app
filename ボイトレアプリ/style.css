@@ -62,6 +62,51 @@ html, body {
   font-size: 15px;
 }
 
+/* ---------- advanced settings (検出感度・再生音量) ---------- */
+.adv-settings {
+  padding: 2px 2px 0;
+}
+.adv-settings-toggle {
+  width: 100%;
+  background: none;
+  color: var(--text-dim);
+  border: none;
+  font-size: 12px;
+  padding: 6px 0;
+  cursor: pointer;
+  text-align: center;
+}
+.adv-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 4px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.adv-settings-panel.hidden { display: none; }
+.adv-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.adv-row label {
+  font-size: 12px;
+  color: var(--text-dim);
+  width: 64px;
+  flex-shrink: 0;
+}
+.adv-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--green);
+}
+.adv-value {
+  font-size: 12px;
+  color: var(--text-dim);
+  width: 34px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
 /* ---------- mic overlay ---------- */
 .mic-overlay {
   position: absolute;
