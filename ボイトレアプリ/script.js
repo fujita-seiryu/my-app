@@ -150,6 +150,20 @@ function buildNoteRing() {
     note.style.left = `${x}%`;
     note.style.top = `${y}%`;
     el.noteRing.insertBefore(note, ringCenter);
+
+    // タップしている間、その音階の基準ピッチをプレビュー再生する
+    note.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      note.classList.add("playing");
+      playDegreePreview(i);
+    });
+    const stopPreview = () => {
+      note.classList.remove("playing");
+      stopDegreePreview();
+    };
+    note.addEventListener("pointerup", stopPreview);
+    note.addEventListener("pointerleave", stopPreview);
+    note.addEventListener("pointercancel", stopPreview);
   });
 }
 
@@ -301,6 +315,53 @@ function pitchLoop() {
 }
 
 /* =========================================================
+   ピッチ再生（リングをタップしている間、基準ピッチをプレビュー再生）
+   ========================================================= */
+
+let activePreview = null; // { osc, gain }
+
+function ensureAudioCtx() {
+  if (!state.audioCtx) {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    state.audioCtx = new AudioCtx();
+  }
+  return state.audioCtx;
+}
+
+function playDegreePreview(degreeIndex) {
+  const ctx = ensureAudioCtx();
+  stopDegreePreview();
+
+  const freq = state.baseFreq * Math.pow(2, degreeIndex / 12);
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = "sine";
+  osc.frequency.value = freq;
+
+  const now = ctx.currentTime;
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(0.3, now + 0.015);
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+
+  activePreview = { osc, gain };
+}
+
+function stopDegreePreview() {
+  if (!activePreview) return;
+  const ctx = state.audioCtx;
+  const { osc, gain } = activePreview;
+  const now = ctx.currentTime;
+  gain.gain.cancelScheduledValues(now);
+  gain.gain.setValueAtTime(gain.gain.value, now);
+  gain.gain.linearRampToValueAtTime(0, now + 0.08);
+  osc.stop(now + 0.09);
+  activePreview = null;
+}
+
+/* =========================================================
    マイク開始
    ========================================================= */
 
@@ -314,8 +375,7 @@ async function startMic() {
       },
     });
 
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    state.audioCtx = new AudioCtx();
+    ensureAudioCtx();
 
     const source = state.audioCtx.createMediaStreamSource(stream);
     state.analyser = state.audioCtx.createAnalyser();
