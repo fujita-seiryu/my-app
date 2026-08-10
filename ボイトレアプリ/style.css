@@ -198,7 +198,7 @@ html, body {
   padding-top: 18px;
 }
 
-/* ---------- note ring (実機シール踏襲: 9分割階名ボタン + 中央矢印) ---------- */
+/* ---------- note ring (半音=30°の周波数比例配置の階名ボタン + 中央矢印) ---------- */
 .note-ring {
   position: relative;
   width: 100%;
@@ -224,6 +224,11 @@ html, body {
   transition: background 120ms ease-out, color 120ms ease-out, transform 120ms ease-out, box-shadow 120ms ease-out;
   cursor: pointer;
   touch-action: none;
+}
+.ring-note.wide-label {
+  width: 52px;
+  height: 52px;
+  font-size: 10px;
 }
 .ring-note.active {
   transform: translate(-50%, -50%) scale(1.15);
