@@ -31,18 +31,19 @@ const OCTAVE_LAYERS = [
 ];
 const DEFAULT_OCTAVE_INDEX = 0;
 
-// 円形メーターの8区画（12半音を周波数距離どおりに等角度=30°/半音で配置。ドを12時に固定）
-// 半音1・3・6・8（ド#/レ#/ファ#/ソ#相当）は御詠歌の唱法で使わないため区画自体を設けない＝空白になる
-// ミ#とファは異名同音（同じsemitone=5）なので1区画にまとめ、ラベルを「ミ#/ファ」と併記する
-const SCALE_POSITIONS = [
+// 円形メーターの9区画（実機VT-12のシール配置をそのまま再現。周波数距離には比例させない）
+// 画面上の配置順（時計回り、12時=ミ/ファの継ぎ目）: ファ→ソ→ラ#→ラ→シ→ド→レ→ミ#→ミ
+// ミ#とファは異名同音（同じsemitone）：検出時に両方同時点灯させるため、あえて別区画として持つ
+const NINE_POSITIONS = [
+  { label: "ファ", semitone: 5 },
+  { label: "ソ", semitone: 7 },
+  { label: "ラ#", semitone: 10 },
+  { label: "ラ", semitone: 9 },
+  { label: "シ", semitone: 11 },
   { label: "ド", semitone: 0 },
   { label: "レ", semitone: 2 },
+  { label: "ミ#", semitone: 5 },
   { label: "ミ", semitone: 4 },
-  { label: "ミ#/ファ", semitone: 5 },
-  { label: "ソ", semitone: 7 },
-  { label: "ラ", semitone: 9 },
-  { label: "ラ#", semitone: 10 },
-  { label: "シ", semitone: 11 },
 ];
 
 const C4_FREQ = 261.6255653005986;
@@ -76,7 +77,7 @@ const state = {
   analyser: null,
   timeDomainBuf: null,
   baseFreq: C4_FREQ,
-  displayedDegreeIndices: [], // SCALE_POSITIONS内でハイライト中のインデックス（区画の境目ちょうどなら2つ）
+  displayedDegreeIndices: [], // NINE_POSITIONS内でハイライト中のインデックス（ミ#/ファ同時ヒット時は2つ）
   displayedOctaveBand: "base",
   degreeCandidate: null, // ちらつき防止の安定判定キー（実音のsemitone値＝オクターブ込み）
   degreeCandidateCount: 0,
@@ -158,25 +159,21 @@ function computeBaseFreq() {
   state.baseFreq = C4_FREQ * Math.pow(2, note.semitone / 12) * Math.pow(2, layer.shift);
 }
 
-// 半音=30°の周波数比例配置。ド（semitone0）を12時、時計回りに半音が上がる
+// 実機シールのように9区画を円状に配置（12時=ミ/ファの継ぎ目、時計回りにファ→...→ミ）
 const RING_RADIUS_PERCENT = 39;
-const RING_DEG_PER_SEMITONE = 30; // 360° / 12半音
-const RING_ANGLE_OFFSET_DEG = -90; // 12時の位置（画面座標系で-90°）
-
-function semitoneToRingAngleDeg(semitone) {
-  return RING_ANGLE_OFFSET_DEG + semitone * RING_DEG_PER_SEMITONE;
-}
+const RING_START_ANGLE_DEG = -70; // ファの位置（12時から時計回りに20度）
+const RING_STEP_DEG = 40; // 360° / 9区画
 
 function buildNoteRing() {
   const ringCenter = el.noteRing.querySelector(".ring-center");
-  SCALE_POSITIONS.forEach((pos, i) => {
-    const angleDeg = semitoneToRingAngleDeg(pos.semitone);
+  NINE_POSITIONS.forEach((pos, i) => {
+    const angleDeg = RING_START_ANGLE_DEG + i * RING_STEP_DEG;
     const rad = (angleDeg * Math.PI) / 180;
     const x = 50 + RING_RADIUS_PERCENT * Math.cos(rad);
     const y = 50 + RING_RADIUS_PERCENT * Math.sin(rad);
 
     const note = document.createElement("div");
-    note.className = "ring-note" + (pos.label.length > 2 ? " wide-label" : "");
+    note.className = "ring-note";
     note.dataset.index = String(i);
     note.textContent = pos.label;
     note.style.left = `${x}%`;
@@ -275,17 +272,17 @@ function autoCorrelate(buf, sampleRate) {
 }
 
 /* =========================================================
-   区画への割り当て判定（区画の境目ちょうどの場合は両隣を同時ヒット）
+   9区画への割り当て判定（ミ#/ファ同時ヒット対応）
    ========================================================= */
 
-// semitoneOffsetRaw（基準ドからの連続的な半音差）に対して、SCALE_POSITIONS内で
-// 最も近い区画を探す。同距離の区画が複数あれば（＝2区画のちょうど中間、または
-// ミ#とファのように同一semitoneの場合）両方を返す。オクターブ違いも含めて広めに探索する。
-function matchScalePositions(semitoneOffsetRaw) {
+// semitoneOffsetRaw（基準ドからの連続的な半音差）に対して、NINE_POSITIONS内で
+// 最も近い区画を探す。同距離の区画が複数あれば（＝ミ#とファがちょうど一致する場合）
+// 両方を返す。オクターブ違いも含めて広めに探索する。
+function matchNinePositions(semitoneOffsetRaw) {
   let bestDist = Infinity;
   let candidates = [];
   for (let oct = -3; oct <= 3; oct++) {
-    SCALE_POSITIONS.forEach((pos, i) => {
+    NINE_POSITIONS.forEach((pos, i) => {
       const candidate = pos.semitone + oct * 12;
       const dist = Math.abs(semitoneOffsetRaw - candidate);
       if (dist < bestDist - 1e-9) {
@@ -322,7 +319,7 @@ function processPitch(freq) {
   }
 
   const semitoneOffsetRaw = 12 * Math.log2(freq / state.baseFreq);
-  const { candidates } = matchScalePositions(semitoneOffsetRaw);
+  const { candidates } = matchNinePositions(semitoneOffsetRaw);
   const primary = candidates[0];
   const cents = (semitoneOffsetRaw - primary.candidate) * 100;
   const octaveBand = primary.octave === 0 ? "base" : primary.octave > 0 ? "above" : "below";
@@ -344,7 +341,7 @@ function processPitch(freq) {
   state.smoothedCents = state.smoothedCents * 0.6 + cents * 0.4;
 
   const labelText = state.displayedDegreeIndices
-    .map((i) => SCALE_POSITIONS[i].label)
+    .map((i) => NINE_POSITIONS[i].label)
     .join("/");
   el.noteName.textContent = labelText;
   el.noteName.style.color = BAND_COLOR_VARS[state.displayedOctaveBand];
@@ -393,7 +390,7 @@ function playDegreePreview(posIndex) {
   const ctx = ensureAudioCtx();
   stopDegreePreview();
 
-  const semitone = SCALE_POSITIONS[posIndex].semitone;
+  const semitone = NINE_POSITIONS[posIndex].semitone;
   const freq = state.baseFreq * Math.pow(2, semitone / 12);
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
