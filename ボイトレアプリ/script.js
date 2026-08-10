@@ -46,6 +46,11 @@ const NINE_POSITIONS = [
   { label: "ミ", semitone: 4 },
 ];
 
+// 円形メーターは実機同様12区画（30°ずつ）の枠を基準とし、9つのラベルをその中に配置する。
+// 残り3枠（ド-レ間・ファ-ソ間・ラ-シ間）は実機でも使わない半音のため空白のまま残す。
+// 値はNINE_POSITIONSのインデックス。nullは空白マス。
+const RING_SLOTS = [0, null, 1, 2, 3, null, 4, 5, null, 6, 7, 8];
+
 const C4_FREQ = 261.6255653005986;
 
 // ピッチ検出パラメータ（声域全体をカバーするため広めに設定。声域外はここで自然にカットされる）
@@ -159,22 +164,25 @@ function computeBaseFreq() {
   state.baseFreq = C4_FREQ * Math.pow(2, note.semitone / 12) * Math.pow(2, layer.shift);
 }
 
-// 実機シールのように9区画を円状に配置（12時=ミ/ファの継ぎ目、時計回りにファ→...→ミ）
+// 実機同様12区画（30°ずつ）を円状に配置し、そのうち9区画にラベルを置く（残り3区画は空白）
 const RING_RADIUS_PERCENT = 39;
 const RING_START_ANGLE_DEG = -70; // ファの位置（12時から時計回りに20度）
-const RING_STEP_DEG = 40; // 360° / 9区画
+const RING_STEP_DEG = 30; // 360° / 12区画
 
 function buildNoteRing() {
   const ringCenter = el.noteRing.querySelector(".ring-center");
-  NINE_POSITIONS.forEach((pos, i) => {
-    const angleDeg = RING_START_ANGLE_DEG + i * RING_STEP_DEG;
+  RING_SLOTS.forEach((posIndex, slot) => {
+    if (posIndex === null) return; // 空白マス（ド-レ間・ファ-ソ間・ラ-シ間など実機で使わない半音の位置）
+
+    const pos = NINE_POSITIONS[posIndex];
+    const angleDeg = RING_START_ANGLE_DEG + slot * RING_STEP_DEG;
     const rad = (angleDeg * Math.PI) / 180;
     const x = 50 + RING_RADIUS_PERCENT * Math.cos(rad);
     const y = 50 + RING_RADIUS_PERCENT * Math.sin(rad);
 
     const note = document.createElement("div");
     note.className = "ring-note";
-    note.dataset.index = String(i);
+    note.dataset.index = String(posIndex);
     note.textContent = pos.label;
     note.style.left = `${x}%`;
     note.style.top = `${y}%`;
@@ -184,7 +192,7 @@ function buildNoteRing() {
     note.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       note.classList.add("playing");
-      playDegreePreview(i);
+      playDegreePreview(posIndex);
     });
     const stopPreview = () => {
       note.classList.remove("playing");
@@ -201,7 +209,8 @@ const BAND_COLOR_VARS = { base: "var(--red)", above: "var(--blue)", below: "var(
 
 function updateNoteRingHighlight() {
   const notes = el.noteRing.querySelectorAll(".ring-note");
-  notes.forEach((note, i) => {
+  notes.forEach((note) => {
+    const i = Number(note.dataset.index);
     const isActive = state.displayedDegreeIndices.includes(i);
     note.classList.toggle("active", isActive);
     note.classList.toggle("oct-base", isActive && state.displayedOctaveBand === "base");
