@@ -95,6 +95,7 @@ const state = {
     running: false,
     bpm: 50,
     beatsPerBar: 2,
+    doubleSpeed: false, // ONの間、同じ拍子パターンを2倍の速さで刻む（例: 2拍子ONでタンタンタンタンと4回）
     currentBeat: 0,
     nextNoteTime: 0,
     timerId: null,
@@ -124,6 +125,7 @@ const el = {
   bpmInput: document.getElementById("bpmInput"),
   beatDots: document.getElementById("beatDots"),
   beatsToggle: document.getElementById("beatsToggle"),
+  doubleSpeedToggle: document.getElementById("doubleSpeedToggle"),
   metroToggle: document.getElementById("metroToggle"),
   advSettingsToggle: document.getElementById("advSettingsToggle"),
   advSettingsPanel: document.getElementById("advSettingsPanel"),
@@ -239,17 +241,19 @@ function updateFlatSharpArrows(cents) {
   el.sharpArrow.classList.toggle("lit", cents > FLAT_SHARP_THRESHOLD);
 }
 
+// ドット数は「拍子×倍速」。アクセント（強拍）は拍子の周期ごと（=倍速時は1・3拍目など）に付く。
 function buildBeatDots() {
   el.beatDots.innerHTML = "";
-  const n = state.metro.beatsPerBar;
+  const accentCycle = state.metro.beatsPerBar;
+  const n = accentCycle * (state.metro.doubleSpeed ? 2 : 1);
   for (let i = 0; i < n; i++) {
     const dot = document.createElement("div");
-    dot.className = "beat-dot" + (i === 0 ? " accent" : "");
+    dot.className = "beat-dot" + (i % accentCycle === 0 ? " accent" : "");
     el.beatDots.appendChild(dot);
   }
 }
 
-// 拍子（2拍子／4拍子）の切り替え。実際の御詠歌では拍速が30〜70の範囲に収まるため、
+// 拍子（2拍子／4拍子）の切り替え。実際の御詠歌では拍速が30〜90の範囲に収まるため、
 // 「タンタン」（2拍子）と「タンタンタンタン」（4拍子）を1つのボタンで切り替えられるようにする。
 // 切り替え時は小節の頭に戻す（currentBeatをリセット）ことで、拍の数え間違いを防ぐ。
 function setBeatsPerBar(n) {
@@ -261,6 +265,20 @@ function setBeatsPerBar(n) {
 
 function toggleBeatsPerBar() {
   setBeatsPerBar(state.metro.beatsPerBar === 2 ? 4 : 2);
+}
+
+// 倍速（ON時、同じ拍子パターンを2倍の速さで刻む）。「2拍子」＋倍速ONで、
+// タンタンタンタンと4回、1・3拍目にアクセントが付く（2拍子を単純に倍速再生した自然な形）。
+// 切り替え時は小節の頭に戻す（currentBeatをリセット）。
+function setDoubleSpeed(on) {
+  state.metro.doubleSpeed = on;
+  state.metro.currentBeat = 0;
+  el.doubleSpeedToggle.classList.toggle("active", on);
+  buildBeatDots();
+}
+
+function toggleDoubleSpeed() {
+  setDoubleSpeed(!state.metro.doubleSpeed);
 }
 
 /* =========================================================
@@ -606,7 +624,7 @@ function scheduleClick(beatIndex, time) {
   const ctx = state.audioCtx;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
-  const isAccent = beatIndex === 0;
+  const isAccent = beatIndex % state.metro.beatsPerBar === 0;
 
   osc.frequency.value = isAccent ? 1500 : 1000;
   gain.gain.setValueAtTime(isAccent ? 0.6 : 0.35, time);
@@ -632,11 +650,12 @@ function flashBeatDot(beatIndex) {
 
 function metroScheduler() {
   const m = state.metro;
+  const totalBeats = m.beatsPerBar * (m.doubleSpeed ? 2 : 1);
   while (m.nextNoteTime < state.audioCtx.currentTime + SCHEDULE_AHEAD_SEC) {
     scheduleClick(m.currentBeat, m.nextNoteTime);
-    const secondsPerBeat = 60.0 / m.bpm;
+    const secondsPerBeat = (60.0 / m.bpm) / (m.doubleSpeed ? 2 : 1);
     m.nextNoteTime += secondsPerBeat;
-    m.currentBeat = (m.currentBeat + 1) % m.beatsPerBar;
+    m.currentBeat = (m.currentBeat + 1) % totalBeats;
   }
 }
 
@@ -676,13 +695,14 @@ function wireEvents() {
     el.bpmInput.value = el.bpmSlider.value;
   });
   el.bpmInput.addEventListener("change", () => {
-    let v = Math.max(30, Math.min(70, Number(el.bpmInput.value) || 50));
+    let v = Math.max(30, Math.min(90, Number(el.bpmInput.value) || 50));
     el.bpmInput.value = v;
     el.bpmSlider.value = v;
     state.metro.bpm = v;
   });
 
   el.beatsToggle.addEventListener("click", toggleBeatsPerBar);
+  el.doubleSpeedToggle.addEventListener("click", toggleDoubleSpeed);
 
   el.metroToggle.addEventListener("click", () => {
     if (!state.audioCtx) return;
@@ -702,6 +722,7 @@ function init() {
   buildNoteRing();
   updateNoteRingHighlight();
   setBeatsPerBar(state.metro.beatsPerBar);
+  setDoubleSpeed(state.metro.doubleSpeed);
   el.metroToggle.disabled = true;
   wireEvents();
   initAdvSettings();
