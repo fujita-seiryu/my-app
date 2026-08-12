@@ -84,8 +84,12 @@
   <footer class="metronome">
     <div class="metro-row">
       <label for="bpmInput">拍速</label>
-      <input type="range" id="bpmSlider" min="40" max="240" value="92" step="1" />
-      <input type="number" id="bpmInput" min="40" max="240" value="92" step="1" />
+      <input type="range" id="bpmSlider" min="30" max="70" value="50" step="1" />
+      <input type="number" id="bpmInput" min="30" max="70" value="50" step="1" />
+    </div>
+    <div class="metro-row">
+      <label for="beatsToggle">拍子</label>
+      <button id="beatsToggle" class="beats-toggle" type="button">2拍子</button>
     </div>
     <div class="metro-row beat-row">
       <div id="beatDots" class="beat-dots"></div>
