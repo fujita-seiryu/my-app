@@ -94,8 +94,8 @@ const state = {
   metro: {
     running: false,
     bpm: 50,
-    beatsPerBar: 2,
-    doubleSpeed: false, // ONの間、同じ拍子パターンを2倍の速さで刻む（例: 2拍子ONでタンタンタンタンと4回）
+    beatsPerBar: 2, // 常に2固定（拍子切り替えボタンは撤去済み。設計書v12参照）
+    doubleSpeed: false, // ONの間、同じ拍子パターンを2倍の速さで刻む（タンタンタンタンと4回、1・3拍目アクセント）
     currentBeat: 0,
     nextNoteTime: 0,
     timerId: null,
@@ -124,7 +124,6 @@ const el = {
   bpmSlider: document.getElementById("bpmSlider"),
   bpmInput: document.getElementById("bpmInput"),
   beatDots: document.getElementById("beatDots"),
-  beatsToggle: document.getElementById("beatsToggle"),
   doubleSpeedToggle: document.getElementById("doubleSpeedToggle"),
   metroToggle: document.getElementById("metroToggle"),
   advSettingsToggle: document.getElementById("advSettingsToggle"),
@@ -253,22 +252,11 @@ function buildBeatDots() {
   }
 }
 
-// 拍子（2拍子／4拍子）の切り替え。実際の御詠歌では拍速が30〜90の範囲に収まるため、
-// 「タンタン」（2拍子）と「タンタンタンタン」（4拍子）を1つのボタンで切り替えられるようにする。
-// 切り替え時は小節の頭に戻す（currentBeatをリセット）ことで、拍の数え間違いを防ぐ。
-function setBeatsPerBar(n) {
-  state.metro.beatsPerBar = n;
-  state.metro.currentBeat = 0;
-  el.beatsToggle.textContent = `${n}拍子`;
-  buildBeatDots();
-}
+// 拍子は常に2拍子（タンタン、強弱）固定。以前は「2拍子／4拍子」を切り替えるボタンもあったが、
+// 「倍速」1つのボタンで足りるため撤去し、beatsPerBarは常に2で固定する（設計書v12参照）。
 
-function toggleBeatsPerBar() {
-  setBeatsPerBar(state.metro.beatsPerBar === 2 ? 4 : 2);
-}
-
-// 倍速（ON時、同じ拍子パターンを2倍の速さで刻む）。「2拍子」＋倍速ONで、
-// タンタンタンタンと4回、1・3拍目にアクセントが付く（2拍子を単純に倍速再生した自然な形）。
+// 倍速（ON時、同じ拍子パターンを2倍の速さで刻む）。倍速ONで、タンタンタンタンと4回、
+// 1・3拍目にアクセントが付く（2拍子を単純に倍速再生した自然な形）。
 // 切り替え時は小節の頭に戻す（currentBeatをリセット）。
 function setDoubleSpeed(on) {
   state.metro.doubleSpeed = on;
@@ -701,7 +689,6 @@ function wireEvents() {
     state.metro.bpm = v;
   });
 
-  el.beatsToggle.addEventListener("click", toggleBeatsPerBar);
   el.doubleSpeedToggle.addEventListener("click", toggleDoubleSpeed);
 
   el.metroToggle.addEventListener("click", () => {
@@ -721,7 +708,6 @@ function init() {
   computeBaseFreq();
   buildNoteRing();
   updateNoteRingHighlight();
-  setBeatsPerBar(state.metro.beatsPerBar);
   setDoubleSpeed(state.metro.doubleSpeed);
   el.metroToggle.disabled = true;
   wireEvents();
