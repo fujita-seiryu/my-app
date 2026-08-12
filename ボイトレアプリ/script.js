@@ -51,6 +51,27 @@ const NINE_POSITIONS = [
 // 値はNINE_POSITIONSのインデックス。nullは空白マス。
 const RING_SLOTS = [0, null, 1, 2, 3, null, 4, 5, null, 6, 7, 8];
 
+// 長調／短調の切り替え（実際に御詠歌で使うコンダクター実機で周波数を確認して判明）
+// 短調では「ミ」がレ#相当、「ラ」がソ#相当の周波数になる。ラベル（階名）自体は変わらず、
+// 鳴る周波数（semitone）だけが切り替わる。それ以外の区画（ド/レ/ファ/ソ/シ/ミ#/ラ#）は変化しない。
+const SCALE_MODES = [
+  { label: "長調", key: "major" },
+  { label: "短調", key: "minor" },
+];
+const DEFAULT_MODE_INDEX = 0;
+
+// NINE_POSITIONSのインデックス → 短調時のsemitone上書き値
+// 3(ラ, 通常semitone9) → 8（ソ#相当）／ 8(ミ, 通常semitone4) → 3（レ#相当）
+const MINOR_OVERRIDES = { 3: 8, 8: 3 };
+
+// 現在の調（長調/短調）を反映したNINE_POSITIONS相当の配列を返す
+function getEffectivePositions() {
+  if (state.scaleMode !== "minor") return NINE_POSITIONS;
+  return NINE_POSITIONS.map((pos, i) =>
+    MINOR_OVERRIDES[i] !== undefined ? { ...pos, semitone: MINOR_OVERRIDES[i] } : pos
+  );
+}
+
 const C4_FREQ = 261.6255653005986;
 
 // ピッチ検出パラメータ（声域全体をカバーするため広めに設定。声域外はここで自然にカットされる）
@@ -82,6 +103,7 @@ const state = {
   analyser: null,
   timeDomainBuf: null,
   baseFreq: C4_FREQ,
+  scaleMode: SCALE_MODES[DEFAULT_MODE_INDEX].key, // "major" | "minor"
   displayedDegreeIndices: [], // NINE_POSITIONS内でハイライト中のインデックス（ミ#/ファ同時ヒット時は2つ）
   displayedOctaveBand: "base",
   degreeCandidate: null, // ちらつき防止の安定判定キー（実音のsemitone値＝オクターブ込み）
@@ -108,6 +130,7 @@ const SCHEDULE_AHEAD_SEC = 0.1;
 
 const el = {
   baseNote: document.getElementById("baseNote"),
+  scaleMode: document.getElementById("scaleMode"),
   octaveLayer: document.getElementById("octaveLayer"),
   micOverlay: document.getElementById("micOverlay"),
   micStartBtn: document.getElementById("micStartBtn"),
@@ -156,6 +179,25 @@ function buildOctaveLayerOptions() {
     el.octaveLayer.appendChild(opt);
   });
   el.octaveLayer.value = String(DEFAULT_OCTAVE_INDEX);
+}
+
+function buildScaleModeOptions() {
+  SCALE_MODES.forEach((mode, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = mode.label;
+    el.scaleMode.appendChild(opt);
+  });
+  el.scaleMode.value = String(DEFAULT_MODE_INDEX);
+}
+
+// 調（長調/短調）が切り替わったら、直前のハイライト・安定判定をリセットして
+// 新しい調のもとで検出をやり直す
+function applyScaleMode() {
+  state.scaleMode = SCALE_MODES[Number(el.scaleMode.value)].key;
+  state.degreeCandidate = null;
+  state.degreeCandidateCount = 0;
+  setNoSignalDisplay();
 }
 
 function computeBaseFreq() {
@@ -288,10 +330,11 @@ function autoCorrelate(buf, sampleRate) {
 // 最も近い区画を探す。同距離の区画が複数あれば（＝ミ#とファがちょうど一致する場合）
 // 両方を返す。オクターブ違いも含めて広めに探索する。
 function matchNinePositions(semitoneOffsetRaw) {
+  const positions = getEffectivePositions(); // 短調時はミ/ラのsemitoneが上書きされる
   let bestDist = Infinity;
   let candidates = [];
   for (let oct = -3; oct <= 3; oct++) {
-    NINE_POSITIONS.forEach((pos, i) => {
+    positions.forEach((pos, i) => {
       const candidate = pos.semitone + oct * 12;
       const dist = Math.abs(semitoneOffsetRaw - candidate);
       if (dist < bestDist - 1e-9) {
@@ -399,7 +442,7 @@ function playDegreePreview(posIndex) {
   const ctx = ensureAudioCtx();
   stopDegreePreview();
 
-  const semitone = NINE_POSITIONS[posIndex].semitone;
+  const semitone = getEffectivePositions()[posIndex].semitone;
   const freq = state.baseFreq * Math.pow(2, semitone / 12);
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
@@ -643,6 +686,7 @@ function wireEvents() {
 
   el.baseNote.addEventListener("change", computeBaseFreq);
   el.octaveLayer.addEventListener("change", computeBaseFreq);
+  el.scaleMode.addEventListener("change", applyScaleMode);
 
   el.bpmSlider.addEventListener("input", () => {
     state.metro.bpm = Number(el.bpmSlider.value);
@@ -668,6 +712,7 @@ function wireEvents() {
 
 function init() {
   buildBaseNoteOptions();
+  buildScaleModeOptions();
   buildOctaveLayerOptions();
   computeBaseFreq();
   buildNoteRing();
