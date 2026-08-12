@@ -93,7 +93,7 @@ const state = {
   playbackVolume: DEFAULT_PLAYBACK_VOLUME / 100,
   metro: {
     running: false,
-    bpm: 92,
+    bpm: 50,
     beatsPerBar: 2,
     currentBeat: 0,
     nextNoteTime: 0,
@@ -123,6 +123,7 @@ const el = {
   bpmSlider: document.getElementById("bpmSlider"),
   bpmInput: document.getElementById("bpmInput"),
   beatDots: document.getElementById("beatDots"),
+  beatsToggle: document.getElementById("beatsToggle"),
   metroToggle: document.getElementById("metroToggle"),
   advSettingsToggle: document.getElementById("advSettingsToggle"),
   advSettingsPanel: document.getElementById("advSettingsPanel"),
@@ -235,6 +236,20 @@ function buildBeatDots() {
     dot.className = "beat-dot" + (i === 0 ? " accent" : "");
     el.beatDots.appendChild(dot);
   }
+}
+
+// 拍子（2拍子／4拍子）の切り替え。実際の御詠歌では拍速が30〜70の範囲に収まるため、
+// 「タンタン」（2拍子）と「タンタンタンタン」（4拍子）を1つのボタンで切り替えられるようにする。
+// 切り替え時は小節の頭に戻す（currentBeatをリセット）ことで、拍の数え間違いを防ぐ。
+function setBeatsPerBar(n) {
+  state.metro.beatsPerBar = n;
+  state.metro.currentBeat = 0;
+  el.beatsToggle.textContent = `${n}拍子`;
+  buildBeatDots();
+}
+
+function toggleBeatsPerBar() {
+  setBeatsPerBar(state.metro.beatsPerBar === 2 ? 4 : 2);
 }
 
 /* =========================================================
@@ -650,11 +665,13 @@ function wireEvents() {
     el.bpmInput.value = el.bpmSlider.value;
   });
   el.bpmInput.addEventListener("change", () => {
-    let v = Math.max(40, Math.min(240, Number(el.bpmInput.value) || 92));
+    let v = Math.max(30, Math.min(70, Number(el.bpmInput.value) || 50));
     el.bpmInput.value = v;
     el.bpmSlider.value = v;
     state.metro.bpm = v;
   });
+
+  el.beatsToggle.addEventListener("click", toggleBeatsPerBar);
 
   el.metroToggle.addEventListener("click", () => {
     if (!state.audioCtx) return;
@@ -673,7 +690,7 @@ function init() {
   computeBaseFreq();
   buildNoteRing();
   updateNoteRingHighlight();
-  buildBeatDots();
+  setBeatsPerBar(state.metro.beatsPerBar);
   el.metroToggle.disabled = true;
   wireEvents();
   initAdvSettings();
