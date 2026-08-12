@@ -351,6 +351,16 @@ html, body {
   font-size: 15px;
   text-align: center;
 }
+.beats-toggle {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
 .beat-row { justify-content: center; }
 .beat-dots {
   display: flex;
