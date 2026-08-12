@@ -167,6 +167,17 @@ function computeBaseFreq() {
   state.baseFreq = C4_FREQ * Math.pow(2, note.semitone / 12) * Math.pow(2, layer.shift);
 }
 
+// プレビュー再生専用の基準周波数。iPhone等の内蔵スピーカーは超低域の再生が苦手で、
+// 「ー2」（基準より2オクターブ下）だとほぼ聞こえなくなってしまうため、プレビュー再生時だけ
+// 「ー1」相当の周波数を使う（実際に耳で確認し、違和感がないことを確認済み）。
+// ピッチ検出・判定に使うstate.baseFreqはそのまま変更しない。
+function computePreviewBaseFreq() {
+  const note = NOTE_NAMES[Number(el.baseNote.value)];
+  const layer = OCTAVE_LAYERS[Number(el.octaveLayer.value)];
+  const previewShift = layer.shift <= -2 ? -1 : layer.shift;
+  return C4_FREQ * Math.pow(2, note.semitone / 12) * Math.pow(2, previewShift);
+}
+
 // 実機同様12区画（30°ずつ）を円状に配置し、そのうち9区画にラベルを置く（残り3区画は空白）
 const RING_RADIUS_PERCENT = 39;
 const RING_START_ANGLE_DEG = -70; // ファの位置（12時から時計回りに20度）
@@ -416,7 +427,7 @@ function playDegreePreview(posIndex) {
   stopDegreePreview();
 
   const semitone = NINE_POSITIONS[posIndex].semitone;
-  const freq = state.baseFreq * Math.pow(2, semitone / 12);
+  const freq = computePreviewBaseFreq() * Math.pow(2, semitone / 12);
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = "sine";
