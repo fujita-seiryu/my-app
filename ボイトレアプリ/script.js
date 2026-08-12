@@ -95,7 +95,7 @@ const state = {
     running: false,
     bpm: 50,
     beatsPerBar: 2, // 常に2固定（拍子切り替えボタンは撤去済み。設計書v12参照）
-    doubleSpeed: false, // ONの間、同じ拍子パターンを2倍の速さで刻む（タンタンタンタンと4回、1・3拍目アクセント）
+    doubleSpeed: false, // ONの間、同じ拍子パターンを2倍の速さで刻む（裏拍込みで基本4回→倍速8回）
     currentBeat: 0,
     nextNoteTime: 0,
     timerId: null,
@@ -240,14 +240,19 @@ function updateFlatSharpArrows(cents) {
   el.sharpArrow.classList.toggle("lit", cents > FLAT_SHARP_THRESHOLD);
 }
 
-// ドット数は「拍子×倍速」。アクセント（強拍）は拍子の周期ごと（=倍速時は1・3拍目など）に付く。
+// 表拍（オンビート）の数は「拍子×倍速」。そのうえで各表拍の間に裏拍（オフビート）を1つずつ挟むため、
+// 実際に鳴る音の数は表拍数の2倍になる（基本：2→4回、倍速：4→8回）。
+// ドットのインデックスは偶数=表拍、奇数=裏拍。アクセントは表拍のうち拍子の周期ごと（1・3拍目など）に付く。
 function buildBeatDots() {
   el.beatDots.innerHTML = "";
-  const accentCycle = state.metro.beatsPerBar;
-  const n = accentCycle * (state.metro.doubleSpeed ? 2 : 1);
+  const onbeatCount = state.metro.beatsPerBar * (state.metro.doubleSpeed ? 2 : 1);
+  const n = onbeatCount * 2;
   for (let i = 0; i < n; i++) {
     const dot = document.createElement("div");
-    dot.className = "beat-dot" + (i % accentCycle === 0 ? " accent" : "");
+    const isOnbeat = i % 2 === 0;
+    const beatIndex = i / 2;
+    const isAccent = isOnbeat && beatIndex % state.metro.beatsPerBar === 0;
+    dot.className = "beat-dot" + (isAccent ? " accent" : "") + (isOnbeat ? "" : " offbeat");
     el.beatDots.appendChild(dot);
   }
 }
@@ -255,8 +260,7 @@ function buildBeatDots() {
 // 拍子は常に2拍子（タンタン、強弱）固定。以前は「2拍子／4拍子」を切り替えるボタンもあったが、
 // 「倍速」1つのボタンで足りるため撤去し、beatsPerBarは常に2で固定する（設計書v12参照）。
 
-// 倍速（ON時、同じ拍子パターンを2倍の速さで刻む）。倍速ONで、タンタンタンタンと4回、
-// 1・3拍目にアクセントが付く（2拍子を単純に倍速再生した自然な形）。
+// 倍速（ON時、同じ拍子パターンを2倍の速さで刻む）。裏拍込みで、基本時は4回、倍速ONでは8回鳴る。
 // 切り替え時は小節の頭に戻す（currentBeatをリセット）。
 function setDoubleSpeed(on) {
   state.metro.doubleSpeed = on;
@@ -608,14 +612,27 @@ async function startMic() {
    メトロノーム（lookaheadスケジューリング）
    ========================================================= */
 
-function scheduleClick(beatIndex, time) {
+// subIndex: 偶数=表拍（元の拍。1・3拍目などがアクセント）、奇数=裏拍（表拍と表拍の間に挟む控えめな音）。
+function scheduleClick(subIndex, time) {
   const ctx = state.audioCtx;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
-  const isAccent = beatIndex % state.metro.beatsPerBar === 0;
 
-  osc.frequency.value = isAccent ? 1500 : 1000;
-  gain.gain.setValueAtTime(isAccent ? 0.6 : 0.35, time);
+  const isOnbeat = subIndex % 2 === 0;
+  let freq, level;
+  if (isOnbeat) {
+    const beatIndex = subIndex / 2;
+    const isAccent = beatIndex % state.metro.beatsPerBar === 0;
+    freq = isAccent ? 1500 : 1000;
+    level = isAccent ? 0.6 : 0.35;
+  } else {
+    // 裏拍：表拍よりさらに控えめな音（低め・小さめ）にして表拍と区別できるようにする
+    freq = 700;
+    level = 0.2;
+  }
+
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(level, time);
   gain.gain.exponentialRampToValueAtTime(0.001, time + 0.06);
 
   osc.connect(gain);
@@ -624,7 +641,7 @@ function scheduleClick(beatIndex, time) {
   osc.stop(time + 0.07);
 
   const delayMs = Math.max(0, (time - ctx.currentTime) * 1000);
-  setTimeout(() => flashBeatDot(beatIndex), delayMs);
+  setTimeout(() => flashBeatDot(subIndex), delayMs);
 }
 
 function flashBeatDot(beatIndex) {
@@ -638,12 +655,16 @@ function flashBeatDot(beatIndex) {
 
 function metroScheduler() {
   const m = state.metro;
-  const totalBeats = m.beatsPerBar * (m.doubleSpeed ? 2 : 1);
+  // 表拍数（拍子×倍速）に対し、各表拍の間に裏拍を1つ挟むため、実際に鳴らすスロット数は表拍数の2倍。
+  // BPMの数値・意味（表拍の間隔）自体は変えず、その中間に裏拍を追加するだけ。
+  const onbeatCount = m.beatsPerBar * (m.doubleSpeed ? 2 : 1);
+  const totalSubSlots = onbeatCount * 2;
+  const secondsPerOnbeat = (60.0 / m.bpm) / (m.doubleSpeed ? 2 : 1);
+  const secondsPerSubSlot = secondsPerOnbeat / 2;
   while (m.nextNoteTime < state.audioCtx.currentTime + SCHEDULE_AHEAD_SEC) {
     scheduleClick(m.currentBeat, m.nextNoteTime);
-    const secondsPerBeat = (60.0 / m.bpm) / (m.doubleSpeed ? 2 : 1);
-    m.nextNoteTime += secondsPerBeat;
-    m.currentBeat = (m.currentBeat + 1) % totalBeats;
+    m.nextNoteTime += secondsPerSubSlot;
+    m.currentBeat = (m.currentBeat + 1) % totalSubSlots;
   }
 }
 
