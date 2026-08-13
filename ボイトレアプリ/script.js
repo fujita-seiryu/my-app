@@ -241,7 +241,8 @@ function updateFlatSharpArrows(cents) {
 }
 
 // 画面のドット表示は表拍（オンビート）の数だけ（基本：2個、倍速：4個）。
-// 実際に鳴る音（裏拍込み）は表拍数の2倍だが、裏拍は画面には表示せず音のみで鳴らす。
+// 実際に鳴る音（裏拍込み）は表拍数の2倍だが、ドットの数自体は増やさず、
+// 対応する表拍のドットを裏拍のタイミングでも控えめに光らせることで音とのズレをなくす（scheduleClick参照）。
 // アクセントは拍子の周期ごと（1・3拍目など）に付く。
 function buildBeatDots() {
   el.beatDots.innerHTML = "";
@@ -610,7 +611,8 @@ async function startMic() {
    ========================================================= */
 
 // subIndex: 偶数=表拍（元の拍。1・3拍目などがアクセント）、奇数=裏拍（表拍と表拍の間に挟む控えめな音）。
-// 画面のドットは表拍の数だけしか無いため、裏拍は音だけ鳴らしドットは光らせない。
+// 画面のドットは表拍の数だけしか無いため、裏拍は対応する表拍と同じドットを控えめな明るさで光らせ、
+// 実際に鳴る音（表拍・裏拍とも）と点滅のタイミングが常に一致するようにする。
 function scheduleClick(subIndex, time) {
   const ctx = state.audioCtx;
   const osc = ctx.createOscillator();
@@ -638,19 +640,20 @@ function scheduleClick(subIndex, time) {
   osc.start(time);
   osc.stop(time + 0.07);
 
-  if (isOnbeat) {
-    const delayMs = Math.max(0, (time - ctx.currentTime) * 1000);
-    setTimeout(() => flashBeatDot(beatIndex), delayMs);
-  }
+  const delayMs = Math.max(0, (time - ctx.currentTime) * 1000);
+  setTimeout(() => flashBeatDot(beatIndex, isOnbeat), delayMs);
 }
 
-function flashBeatDot(beatIndex) {
-  const dots = el.beatDots.children;
-  for (let i = 0; i < dots.length; i++) dots[i].classList.remove("on");
-  if (dots[beatIndex]) {
-    dots[beatIndex].classList.add("on");
-    setTimeout(() => dots[beatIndex].classList.remove("on"), 100);
-  }
+// isOnbeat=true（表拍）は明るく、false（裏拍）は控えめに同じドットを光らせる。
+// 各ドット自身のタイマーで自分のクラスだけを消すため、表拍と裏拍の点滅が互いに消し合わない。
+function flashBeatDot(beatIndex, isOnbeat) {
+  const dot = el.beatDots.children[beatIndex];
+  if (!dot) return;
+  const cls = isOnbeat ? "on" : "weak-on";
+  dot.classList.remove(cls);
+  void dot.offsetWidth; // 連続で同じクラスが付いた場合でもアニメーションを再トリガーする
+  dot.classList.add(cls);
+  setTimeout(() => dot.classList.remove(cls), 100);
 }
 
 function metroScheduler() {
@@ -686,7 +689,7 @@ function stopMetronome() {
   el.metroToggle.textContent = "開始";
   el.metroToggle.classList.remove("running");
   const dots = el.beatDots.children;
-  for (let i = 0; i < dots.length; i++) dots[i].classList.remove("on");
+  for (let i = 0; i < dots.length; i++) dots[i].classList.remove("on", "weak-on");
 }
 
 /* =========================================================
