@@ -381,10 +381,8 @@ html, body {
   transition: background 60ms, transform 60ms;
 }
 .beat-dot.accent { border-color: var(--accent-beat); }
-.beat-dot.offbeat { width: 11px; height: 11px; opacity: 0.6; align-self: center; }
 .beat-dot.on { background: var(--green); transform: scale(1.15); }
 .beat-dot.accent.on { background: var(--accent-beat); }
-.beat-dot.offbeat.on { background: var(--text-dim); transform: scale(1.15); }
 
 .metro-toggle {
   background: var(--panel-2);
