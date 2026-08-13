@@ -240,19 +240,16 @@ function updateFlatSharpArrows(cents) {
   el.sharpArrow.classList.toggle("lit", cents > FLAT_SHARP_THRESHOLD);
 }
 
-// 表拍（オンビート）の数は「拍子×倍速」。そのうえで各表拍の間に裏拍（オフビート）を1つずつ挟むため、
-// 実際に鳴る音の数は表拍数の2倍になる（基本：2→4回、倍速：4→8回）。
-// ドットのインデックスは偶数=表拍、奇数=裏拍。アクセントは表拍のうち拍子の周期ごと（1・3拍目など）に付く。
+// 画面のドット表示は表拍（オンビート）の数だけ（基本：2個、倍速：4個）。
+// 実際に鳴る音（裏拍込み）は表拍数の2倍だが、裏拍は画面には表示せず音のみで鳴らす。
+// アクセントは拍子の周期ごと（1・3拍目など）に付く。
 function buildBeatDots() {
   el.beatDots.innerHTML = "";
   const onbeatCount = state.metro.beatsPerBar * (state.metro.doubleSpeed ? 2 : 1);
-  const n = onbeatCount * 2;
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < onbeatCount; i++) {
     const dot = document.createElement("div");
-    const isOnbeat = i % 2 === 0;
-    const beatIndex = i / 2;
-    const isAccent = isOnbeat && beatIndex % state.metro.beatsPerBar === 0;
-    dot.className = "beat-dot" + (isAccent ? " accent" : "") + (isOnbeat ? "" : " offbeat");
+    const isAccent = i % state.metro.beatsPerBar === 0;
+    dot.className = "beat-dot" + (isAccent ? " accent" : "");
     el.beatDots.appendChild(dot);
   }
 }
@@ -613,15 +610,16 @@ async function startMic() {
    ========================================================= */
 
 // subIndex: 偶数=表拍（元の拍。1・3拍目などがアクセント）、奇数=裏拍（表拍と表拍の間に挟む控えめな音）。
+// 画面のドットは表拍の数だけしか無いため、裏拍は音だけ鳴らしドットは光らせない。
 function scheduleClick(subIndex, time) {
   const ctx = state.audioCtx;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
 
   const isOnbeat = subIndex % 2 === 0;
+  const beatIndex = Math.floor(subIndex / 2);
   let freq, level;
   if (isOnbeat) {
-    const beatIndex = subIndex / 2;
     const isAccent = beatIndex % state.metro.beatsPerBar === 0;
     freq = isAccent ? 1500 : 1000;
     level = isAccent ? 0.6 : 0.35;
@@ -640,8 +638,10 @@ function scheduleClick(subIndex, time) {
   osc.start(time);
   osc.stop(time + 0.07);
 
-  const delayMs = Math.max(0, (time - ctx.currentTime) * 1000);
-  setTimeout(() => flashBeatDot(subIndex), delayMs);
+  if (isOnbeat) {
+    const delayMs = Math.max(0, (time - ctx.currentTime) * 1000);
+    setTimeout(() => flashBeatDot(beatIndex), delayMs);
+  }
 }
 
 function flashBeatDot(beatIndex) {
