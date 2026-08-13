@@ -241,9 +241,9 @@ function updateFlatSharpArrows(cents) {
 }
 
 // 画面のドット表示は表拍（オンビート）の数だけ（基本：2個、倍速：4個）。
-// 実際に鳴る音（裏拍込み）は表拍数の2倍だが、ドットは表拍のタイミングだけ1回光る
-// （アクセント＝黄色、非アクセント＝白）。裏拍は音のみで鳴り、点滅はつけない（scheduleClick参照）。
-// アクセントは拍子の周期ごと（1・3拍目など）に付く。
+// 実際に鳴る音（裏拍込み）は表拍数の2倍あり、表拍・裏拍のすべてのタイミングでドットが
+// 順番に1回ずつ光る。アクセント（1・3拍目など）のドットは必ず表拍で黄色に、
+// 非アクセントのドットは必ず裏拍で白に光る（scheduleClick参照）。
 function buildBeatDots() {
   el.beatDots.innerHTML = "";
   const onbeatCount = state.metro.beatsPerBar * (state.metro.doubleSpeed ? 2 : 1);
@@ -611,8 +611,10 @@ async function startMic() {
    ========================================================= */
 
 // subIndex: 偶数=表拍（元の拍。1・3拍目などがアクセント）、奇数=裏拍（表拍と表拍の間に挟む控えめな音）。
-// 画面のドットは表拍の数だけで、点滅も表拍のタイミングだけ1回だけ光らせる。
-// 裏拍は音のみで鳴らし、点滅は一切つけない（buildBeatDots参照）。
+// 画面のドットは表拍の数だけ（通常2個・倍速4個）だが、点滅は表拍・裏拍の全イベントを
+// ドットの並びに順番に（余りで）割り当てて光らせる。ドット数は常に偶数のため、
+// 偶数番目のドット（アクセント）には必ず表拍だけが、奇数番目のドット（非アクセント）には
+// 必ず裏拍だけが割り当たり、CSSのbeat-dot.accent.onで自動的に黄（表拍）／白（裏拍）に分かれる。
 function scheduleClick(subIndex, time) {
   const ctx = state.audioCtx;
   const osc = ctx.createOscillator();
@@ -640,15 +642,16 @@ function scheduleClick(subIndex, time) {
   osc.start(time);
   osc.stop(time + 0.07);
 
-  if (isOnbeat) {
-    const delayMs = Math.max(0, (time - ctx.currentTime) * 1000);
-    setTimeout(() => flashBeatDot(beatIndex), delayMs);
-  }
+  const dotCount = state.metro.beatsPerBar * (state.metro.doubleSpeed ? 2 : 1);
+  const dotIndex = subIndex % dotCount;
+  const delayMs = Math.max(0, (time - ctx.currentTime) * 1000);
+  setTimeout(() => flashBeatDot(dotIndex), delayMs);
 }
 
-// 表拍のタイミングでドットを1回だけ光らせる（アクセント/非アクセントの色分けはCSSのbeat-dot.accent.onで行う）。
-function flashBeatDot(beatIndex) {
-  const dot = el.beatDots.children[beatIndex];
+// 表拍・裏拍いずれのタイミングでも、渡されたドットを1回だけ光らせる
+// （黄色/白の色分けはCSSのbeat-dot.accent.onで自動的に行われる。scheduleClick参照）。
+function flashBeatDot(dotIndex) {
+  const dot = el.beatDots.children[dotIndex];
   if (!dot) return;
   dot.classList.remove("on");
   void dot.offsetWidth; // 連続で光らせる場合でもアニメーションを再トリガーする
