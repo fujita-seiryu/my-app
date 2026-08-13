@@ -624,7 +624,11 @@ function scheduleClick(subIndex, time) {
   const beatIndex = Math.floor(subIndex / 2);
   let freq, level;
   if (isOnbeat) {
-    const isAccent = beatIndex % state.metro.beatsPerBar === 0;
+    // 通常速度（倍速OFF）では表拍の音を強拍/弱拍で区別せず、常に同じ音（ピン）にする。
+    // 倍速ONのときは従来どおり1・3打目（強拍）と2・4打目（弱拍）を区別する。
+    const isAccent = state.metro.doubleSpeed
+      ? beatIndex % state.metro.beatsPerBar === 0
+      : true;
     freq = isAccent ? 1500 : 1000;
     level = isAccent ? 0.6 : 0.35;
   } else {
