@@ -97,18 +97,14 @@
     <button id="metroToggle" class="metro-toggle">開始</button>
   </footer>
 
-  <!-- となえ練習: ピッチ音を聞きながら一緒に唱える練習。全8パターン予定（現在はパターン1のみ実装） -->
+  <!-- となえ練習: ピッチ音を聞きながら一緒に唱える練習。全8パターン。
+       パターン選択ボタン(8個)は script.js が動的生成する。 -->
   <section class="chant">
     <h2 class="chant-title">となえ練習</h2>
-    <div id="chantGrid" class="chant-grid">
-      <button class="chant-btn" type="button" data-pattern-index="0">パターン1</button>
-      <button class="chant-btn" type="button" data-pattern-index="1" disabled>パターン2<span class="chant-btn-sub">準備中</span></button>
-      <button class="chant-btn" type="button" data-pattern-index="2" disabled>パターン3<span class="chant-btn-sub">準備中</span></button>
-      <button class="chant-btn" type="button" data-pattern-index="3" disabled>パターン4<span class="chant-btn-sub">準備中</span></button>
-      <button class="chant-btn" type="button" data-pattern-index="4" disabled>パターン5<span class="chant-btn-sub">準備中</span></button>
-      <button class="chant-btn" type="button" data-pattern-index="5" disabled>パターン6<span class="chant-btn-sub">準備中</span></button>
-      <button class="chant-btn" type="button" data-pattern-index="6" disabled>パターン7<span class="chant-btn-sub">準備中</span></button>
-      <button class="chant-btn" type="button" data-pattern-index="7" disabled>パターン8<span class="chant-btn-sub">準備中</span></button>
+    <div id="chantGrid" class="chant-grid"></div>
+    <div class="chant-controls">
+      <button id="chantScaleToggle" class="beats-toggle" type="button">長音階</button>
+      <button id="chantStartBtn" class="metro-toggle" type="button">START</button>
     </div>
   </section>
 
