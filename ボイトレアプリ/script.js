@@ -53,6 +53,43 @@ const NINE_POSITIONS = [
 // 値はNINE_POSITIONSのインデックス。nullは空白マス。
 const RING_SLOTS = [0, null, 1, 2, 3, null, 4, 5, null, 6, 7, 8];
 
+// となえ練習で使う音名→半音差（「ド」を0とした相対値）。移動ドの基準「ド」からの音程を表す。
+const DEGREE_SEMITONES = { ド: 0, レ: 2, ミ: 4, ファ: 5, ソ: 7, ラ: 9, シ: 11 };
+
+// となえ練習パターン（全8種を予定）。degreeは音名（ドレミ…）、octは基準「ド」から見た相対オクターブ
+// （0=基準、1=1つ上、-1=1つ下）。nullは1拍分の休止。bpmはこのパターン専用の拍速。
+// パターン2〜8は内容が決まり次第、1つずつ追加していく（現時点ではnull＝準備中）。
+const CHANT_PATTERNS = [
+  {
+    bpm: 45,
+    notes: [
+      { degree: "ド", oct: 0 },
+      { degree: "レ", oct: 0 },
+      { degree: "ミ", oct: 0 },
+      { degree: "ソ", oct: 0 },
+      { degree: "ラ", oct: 0 },
+      { degree: "ド", oct: 1 },
+      { degree: "レ", oct: 1 },
+      { degree: "ミ", oct: 1 },
+      null,
+      { degree: "ミ", oct: 1 },
+      { degree: "ド", oct: 1 },
+      { degree: "ラ", oct: 0 },
+      { degree: "ソ", oct: 0 },
+      { degree: "ミ", oct: 0 },
+      { degree: "レ", oct: 0 },
+      { degree: "ド", oct: 0 },
+    ],
+  },
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+];
+
 const C4_FREQ = 261.6255653005986;
 
 // ピッチ検出パラメータ（声域全体をカバーするため広めに設定。声域外はここで自然にカットされる）
@@ -100,6 +137,11 @@ const state = {
     nextNoteTime: 0,
     timerId: null,
   },
+  chant: {
+    activeIndex: null, // 再生中のとなえ練習パターンの番号（0〜7）。再生していなければnull
+    timers: [], // setTimeoutのID一覧（停止時にまとめてclearTimeoutする）
+    activeNotes: [], // 現在鳴っている{osc, gain}の一覧（途中停止時に即フェードアウトさせる）
+  },
 };
 
 const LOOKAHEAD_MS = 25;
@@ -136,6 +178,7 @@ const el = {
   lockCodeInput: document.getElementById("lockCodeInput"),
   lockSubmitBtn: document.getElementById("lockSubmitBtn"),
   lockError: document.getElementById("lockError"),
+  chantGrid: document.getElementById("chantGrid"),
 };
 
 /* =========================================================
@@ -700,6 +743,132 @@ function stopMetronome() {
 }
 
 /* =========================================================
+   となえ練習（ピッチ音を聞きながら一緒に唱える練習。全8パターン予定）
+   ========================================================= */
+
+// 基準「ド」からの相対音程（degree・oct）を実際の周波数に変換する。
+// プレビュー再生（playDegreePreview）と同じく、iPhone内蔵スピーカーでも聞こえるよう
+// computePreviewBaseFreq（「ー2」を「ー1」相当に補正した基準周波数）を使う。
+function computeChantNoteFreq(note) {
+  const semitone = DEGREE_SEMITONES[note.degree];
+  return computePreviewBaseFreq() * Math.pow(2, semitone / 12) * Math.pow(2, note.oct);
+}
+
+// 音名リング上で、指定した音名（ドレミ…）に対応する要素を探す
+function findChantRingEl(degree) {
+  const posIndex = NINE_POSITIONS.findIndex((p) => p.label === degree);
+  if (posIndex < 0) return null;
+  return el.noteRing.querySelector(`.ring-note[data-index="${posIndex}"]`);
+}
+
+function clearChantTimers() {
+  state.chant.timers.forEach((id) => clearTimeout(id));
+  state.chant.timers = [];
+}
+
+// 再生途中で停止された場合、鳴っている音をすぐにフェードアウトして止める
+function stopChantImmediate() {
+  const ctx = state.audioCtx;
+  state.chant.activeNotes.forEach(({ osc, gain }) => {
+    try {
+      const now = ctx.currentTime;
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(gain.gain.value, now);
+      gain.gain.linearRampToValueAtTime(0, now + 0.05);
+      osc.stop(now + 0.06);
+    } catch {
+      // 既に再生が終わっているオシレーターへの二重stop呼び出しは無視する
+    }
+  });
+  state.chant.activeNotes = [];
+}
+
+function resetChantUI() {
+  document.querySelectorAll(".ring-note.chant-target").forEach((n) => n.classList.remove("chant-target"));
+  document.querySelectorAll(".chant-btn.playing").forEach((b) => b.classList.remove("playing"));
+}
+
+function stopChantPattern() {
+  clearChantTimers();
+  stopChantImmediate();
+  resetChantUI();
+  state.chant.activeIndex = null;
+}
+
+// パターン内の全ノートを事前にまとめてスケジューリングする（曲全体が短いためlookahead方式は不要）。
+// レガート：各音は次の音の直前まで伸ばし、ポップ音防止のためごく短いアタック/リリースだけ付ける。
+// 各ノートの発音区間に合わせ、音名リングの対応区画に`chant-target`クラスを付け外しして
+// 「今どの音が鳴っているか」を緑の光で示す（マイクで検出した実際の声の色付け＝activeとは別枠の表示）。
+function playChantPattern(patternIndex, btnEl) {
+  const pattern = CHANT_PATTERNS[patternIndex];
+  if (!pattern) return; // 準備中のパターン
+
+  if (state.chant.activeIndex === patternIndex) {
+    // 再生中の同じボタンをもう一度押したら停止する
+    stopChantPattern();
+    return;
+  }
+  stopChantPattern(); // 別のパターンが再生中なら止めてから切り替える
+
+  const ctx = ensureAudioCtx();
+  state.chant.activeIndex = patternIndex;
+  btnEl.classList.add("playing");
+
+  const beatDuration = 60 / pattern.bpm;
+  const noteGap = 0.03; // 次の音との間に置くごく短い無音（ポップ音防止）
+  const startDelay = 0.05;
+  const now = ctx.currentTime;
+
+  pattern.notes.forEach((note, i) => {
+    if (!note) return; // 休止（音を鳴らさない）
+
+    const startTime = now + startDelay + i * beatDuration;
+    const endTime = startTime + beatDuration - noteGap;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = computeChantNoteFreq(note);
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(state.playbackVolume, startTime + 0.02);
+    gain.gain.setValueAtTime(state.playbackVolume, endTime - 0.03);
+    gain.gain.linearRampToValueAtTime(0, endTime);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(startTime);
+    osc.stop(endTime + 0.02);
+
+    const noteRef = { osc, gain };
+    state.chant.activeNotes.push(noteRef);
+
+    const ringEl = findChantRingEl(note.degree);
+    const onDelayMs = Math.max(0, (startTime - ctx.currentTime) * 1000);
+    const offDelayMs = Math.max(0, (endTime - ctx.currentTime) * 1000);
+
+    state.chant.timers.push(
+      setTimeout(() => {
+        if (ringEl) ringEl.classList.add("chant-target");
+      }, onDelayMs)
+    );
+    state.chant.timers.push(
+      setTimeout(() => {
+        if (ringEl) ringEl.classList.remove("chant-target");
+        const idx = state.chant.activeNotes.indexOf(noteRef);
+        if (idx >= 0) state.chant.activeNotes.splice(idx, 1);
+      }, offDelayMs)
+    );
+  });
+
+  const totalDurationMs = (startDelay + pattern.notes.length * beatDuration) * 1000;
+  state.chant.timers.push(
+    setTimeout(() => {
+      resetChantUI();
+      state.chant.activeIndex = null;
+    }, totalDurationMs + 50)
+  );
+}
+
+/* =========================================================
    イベント配線
    ========================================================= */
 
@@ -726,6 +895,12 @@ function wireEvents() {
     if (!state.audioCtx) return;
     if (state.metro.running) stopMetronome();
     else startMetronome();
+  });
+
+  el.chantGrid.addEventListener("click", (e) => {
+    const btn = e.target.closest(".chant-btn");
+    if (!btn || btn.disabled) return;
+    playChantPattern(Number(btn.dataset.patternIndex), btn);
   });
 }
 
