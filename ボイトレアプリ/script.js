@@ -170,7 +170,7 @@ const CHANT_PATTERNS = [
       [{ degree: "ソ", oct: 0, dur: 3 }, { degree: "ラ", oct: 0, dur: 1 }],
       [{ degree: "ラ", oct: 0, dur: 3 }, { degree: "ド", oct: 1, dur: 1 }],
       [{ degree: "ド", oct: 1, dur: 3 }, { degree: "レ", oct: 1, dur: 1 }],
-      [{ degree: "レ", oct: 1, dur: 3 }, { degree: "ド", oct: 1, dur: 1 }],
+      [{ degree: "レ", oct: 1, dur: 3 }, { degree: "ミ", oct: 1, dur: 1 }],
       [{ degree: "ド", oct: 1, dur: 4 }],
       null,
       [{ degree: "ミ", oct: 1, dur: 3 }, { degree: "レ", oct: 1, dur: 1 }],
