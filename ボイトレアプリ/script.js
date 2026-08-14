@@ -53,41 +53,235 @@ const NINE_POSITIONS = [
 // 値はNINE_POSITIONSのインデックス。nullは空白マス。
 const RING_SLOTS = [0, null, 1, 2, 3, null, 4, 5, null, 6, 7, 8];
 
-// となえ練習で使う音名→半音差（「ド」を0とした相対値）。移動ドの基準「ド」からの音程を表す。
+// となえ練習で使う音名→半音差（「ド」を0とした相対値、長音階）。移動ドの基準「ド」からの音程を表す。
 const DEGREE_SEMITONES = { ド: 0, レ: 2, ミ: 4, ファ: 5, ソ: 7, ラ: 9, シ: 11 };
 
-// となえ練習パターン（全8種を予定）。degreeは音名（ドレミ…）、octは基準「ド」から見た相対オクターブ
-// （0=基準、1=1つ上、-1=1つ下）。nullは1拍分の休止。bpmはこのパターン専用の拍速。
-// パターン2〜8は内容が決まり次第、1つずつ追加していく（現時点ではnull＝準備中）。
+// 短音階時の半音差の差し替え（「ミ」→レ#相当=3、「ラ」→ソ#相当=8。既存の「ミ短」「ラ短」と同じ半音）。
+// オクターブに関わらず、degree名が一致すれば差し替える（「ミ」「ミ↑」どちらもレ#/レ↑#相当になる）。
+const MINOR_DEGREE_SEMITONES = { ミ: 3, ラ: 8 };
+
+function degreeSemitone(degree, scale) {
+  if (scale === "minor" && MINOR_DEGREE_SEMITONES[degree] !== undefined) {
+    return MINOR_DEGREE_SEMITONES[degree];
+  }
+  return DEGREE_SEMITONES[degree];
+}
+
+// となえ練習パターン（全8種）。1拍を4分割した単位(unit)でリズムを表現する。
+// beats配列の各要素は1拍分：nullなら1拍まるごと休止、配列なら{degree, oct, dur}の並び
+// （degreeは音名、octは基準「ド」から見た相対オクターブ、durはその拍内で占める単位数。
+// 1拍=4単位のため、休止以外は各拍内のdur合計が必ず4になる）。
+// bpmはこのパターン専用の拍速。nameは選択ボタンに表示するパターン名。
 const CHANT_PATTERNS = [
   {
+    name: "１・１",
     bpm: 45,
-    notes: [
-      { degree: "ド", oct: 0 },
-      { degree: "レ", oct: 0 },
-      { degree: "ミ", oct: 0 },
-      { degree: "ソ", oct: 0 },
-      { degree: "ラ", oct: 0 },
-      { degree: "ド", oct: 1 },
-      { degree: "レ", oct: 1 },
-      { degree: "ミ", oct: 1 },
+    beats: [
+      [{ degree: "ド", oct: 0, dur: 4 }],
+      [{ degree: "レ", oct: 0, dur: 4 }],
+      [{ degree: "ミ", oct: 0, dur: 4 }],
+      [{ degree: "ソ", oct: 0, dur: 4 }],
+      [{ degree: "ラ", oct: 0, dur: 4 }],
+      [{ degree: "ド", oct: 1, dur: 4 }],
+      [{ degree: "レ", oct: 1, dur: 4 }],
+      [{ degree: "ミ", oct: 1, dur: 4 }],
       null,
-      { degree: "ミ", oct: 1 },
-      { degree: "ド", oct: 1 },
-      { degree: "ラ", oct: 0 },
-      { degree: "ソ", oct: 0 },
-      { degree: "ミ", oct: 0 },
-      { degree: "レ", oct: 0 },
-      { degree: "ド", oct: 0 },
+      [{ degree: "ミ", oct: 1, dur: 4 }],
+      [{ degree: "レ", oct: 1, dur: 4 }],
+      [{ degree: "ド", oct: 1, dur: 4 }],
+      [{ degree: "ラ", oct: 0, dur: 4 }],
+      [{ degree: "ソ", oct: 0, dur: 4 }],
+      [{ degree: "ミ", oct: 0, dur: 4 }],
+      [{ degree: "レ", oct: 0, dur: 4 }],
+      [{ degree: "ド", oct: 0, dur: 4 }],
     ],
   },
-  null,
-  null,
-  null,
-  null,
-  null,
-  null,
-  null,
+  {
+    name: "２・２",
+    bpm: 45,
+    beats: [
+      [{ degree: "ド", oct: 0, dur: 2 }, { degree: "レ", oct: 0, dur: 2 }],
+      [{ degree: "レ", oct: 0, dur: 2 }, { degree: "ミ", oct: 0, dur: 2 }],
+      [{ degree: "ミ", oct: 0, dur: 2 }, { degree: "ソ", oct: 0, dur: 2 }],
+      [{ degree: "ソ", oct: 0, dur: 2 }, { degree: "ラ", oct: 0, dur: 2 }],
+      [{ degree: "ラ", oct: 0, dur: 2 }, { degree: "ド", oct: 1, dur: 2 }],
+      [{ degree: "ド", oct: 1, dur: 2 }, { degree: "レ", oct: 1, dur: 2 }],
+      [{ degree: "レ", oct: 1, dur: 2 }, { degree: "ミ", oct: 1, dur: 2 }],
+      [{ degree: "ド", oct: 1, dur: 4 }],
+      null,
+      [{ degree: "ミ", oct: 1, dur: 2 }, { degree: "レ", oct: 1, dur: 2 }],
+      [{ degree: "レ", oct: 1, dur: 2 }, { degree: "ド", oct: 1, dur: 2 }],
+      [{ degree: "ド", oct: 1, dur: 2 }, { degree: "ラ", oct: 0, dur: 2 }],
+      [{ degree: "ラ", oct: 0, dur: 2 }, { degree: "ソ", oct: 0, dur: 2 }],
+      [{ degree: "ソ", oct: 0, dur: 2 }, { degree: "ミ", oct: 0, dur: 2 }],
+      [{ degree: "ミ", oct: 0, dur: 2 }, { degree: "レ", oct: 0, dur: 2 }],
+      [{ degree: "レ", oct: 0, dur: 2 }, { degree: "ド", oct: 0, dur: 2 }],
+      [{ degree: "ド", oct: 0, dur: 4 }],
+    ],
+  },
+  {
+    name: "２・１・１",
+    bpm: 45,
+    beats: [
+      [{ degree: "ド", oct: 0, dur: 2 }, { degree: "レ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }],
+      [{ degree: "レ", oct: 0, dur: 2 }, { degree: "ミ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }],
+      [{ degree: "ミ", oct: 0, dur: 2 }, { degree: "ソ", oct: 0, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }],
+      [{ degree: "ソ", oct: 0, dur: 2 }, { degree: "ラ", oct: 0, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }],
+      [{ degree: "ド", oct: 0, dur: 2 }, { degree: "レ", oct: 1, dur: 1 }, { degree: "ミ", oct: 1, dur: 1 }],
+      [{ degree: "ド", oct: 1, dur: 4 }],
+      null,
+      [{ degree: "ミ", oct: 1, dur: 2 }, { degree: "レ", oct: 1, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }],
+      [{ degree: "レ", oct: 1, dur: 2 }, { degree: "ド", oct: 1, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }],
+      [{ degree: "ド", oct: 1, dur: 2 }, { degree: "ラ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }],
+      [{ degree: "ラ", oct: 0, dur: 2 }, { degree: "ソ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }],
+      [{ degree: "ソ", oct: 0, dur: 2 }, { degree: "ミ", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 1 }],
+      [{ degree: "ミ", oct: 0, dur: 2 }, { degree: "レ", oct: 0, dur: 1 }, { degree: "ド", oct: 0, dur: 1 }],
+      [{ degree: "ド", oct: 0, dur: 4 }],
+    ],
+  },
+  {
+    name: "１・１・２",
+    bpm: 45,
+    beats: [
+      [{ degree: "ド", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 2 }],
+      [{ degree: "レ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 2 }],
+      [{ degree: "ミ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }, { degree: "ラ", oct: 0, dur: 2 }],
+      [{ degree: "ソ", oct: 0, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }, { degree: "ド", oct: 1, dur: 2 }],
+      [{ degree: "ラ", oct: 0, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 2 }],
+      [{ degree: "ド", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 1 }, { degree: "ミ", oct: 1, dur: 2 }],
+      [{ degree: "ド", oct: 1, dur: 4 }],
+      null,
+      [{ degree: "ミ", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 1 }, { degree: "ド", oct: 1, dur: 2 }],
+      [{ degree: "レ", oct: 1, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }, { degree: "ラ", oct: 0, dur: 2 }],
+      [{ degree: "ド", oct: 1, dur: 1 }, { degree: "ラ", oct: 1, dur: 1 }, { degree: "ソ", oct: 0, dur: 2 }],
+      [{ degree: "ラ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 2 }],
+      [{ degree: "ソ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 2 }],
+      [{ degree: "ミ", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 1 }, { degree: "ド", oct: 0, dur: 2 }],
+      [{ degree: "ド", oct: 0, dur: 4 }],
+    ],
+  },
+  {
+    name: "３・１",
+    bpm: 45,
+    beats: [
+      [{ degree: "ド", oct: 0, dur: 3 }, { degree: "レ", oct: 0, dur: 1 }],
+      [{ degree: "レ", oct: 0, dur: 3 }, { degree: "ミ", oct: 0, dur: 1 }],
+      [{ degree: "ミ", oct: 0, dur: 3 }, { degree: "ソ", oct: 0, dur: 1 }],
+      [{ degree: "ソ", oct: 0, dur: 3 }, { degree: "ラ", oct: 0, dur: 1 }],
+      [{ degree: "ラ", oct: 0, dur: 3 }, { degree: "ド", oct: 1, dur: 1 }],
+      [{ degree: "ド", oct: 1, dur: 3 }, { degree: "レ", oct: 0, dur: 1 }],
+      [{ degree: "レ", oct: 1, dur: 3 }, { degree: "ド", oct: 1, dur: 1 }],
+      [{ degree: "ド", oct: 1, dur: 4 }],
+      null,
+      [{ degree: "ミ", oct: 1, dur: 3 }, { degree: "レ", oct: 1, dur: 1 }],
+      [{ degree: "レ", oct: 1, dur: 3 }, { degree: "ド", oct: 1, dur: 1 }],
+      [{ degree: "ド", oct: 1, dur: 3 }, { degree: "ラ", oct: 0, dur: 1 }],
+      [{ degree: "ラ", oct: 0, dur: 3 }, { degree: "ソ", oct: 0, dur: 1 }],
+      [{ degree: "ソ", oct: 0, dur: 3 }, { degree: "ミ", oct: 0, dur: 1 }],
+      [{ degree: "ミ", oct: 0, dur: 3 }, { degree: "レ", oct: 0, dur: 1 }],
+      [{ degree: "レ", oct: 0, dur: 3 }, { degree: "ド", oct: 0, dur: 1 }],
+      [{ degree: "ド", oct: 0, dur: 4 }],
+    ],
+  },
+  {
+    name: "１・３",
+    bpm: 45,
+    beats: [
+      [{ degree: "ド", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 3 }],
+      [{ degree: "レ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 3 }],
+      [{ degree: "ミ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 3 }],
+      [{ degree: "ソ", oct: 0, dur: 1 }, { degree: "ラ", oct: 0, dur: 3 }],
+      [{ degree: "ラ", oct: 0, dur: 1 }, { degree: "ド", oct: 1, dur: 3 }],
+      [{ degree: "ド", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 3 }],
+      [{ degree: "レ", oct: 1, dur: 1 }, { degree: "ミ", oct: 1, dur: 3 }],
+      [{ degree: "ド", oct: 1, dur: 4 }],
+      null,
+      [{ degree: "ミ", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 3 }],
+      [{ degree: "レ", oct: 1, dur: 1 }, { degree: "ド", oct: 1, dur: 3 }],
+      [{ degree: "ド", oct: 1, dur: 1 }, { degree: "ラ", oct: 0, dur: 3 }],
+      [{ degree: "ラ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 3 }],
+      [{ degree: "ソ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 3 }],
+      [{ degree: "ミ", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 3 }],
+      [{ degree: "レ", oct: 0, dur: 1 }, { degree: "ド", oct: 0, dur: 3 }],
+      [{ degree: "ド", oct: 0, dur: 4 }],
+    ],
+  },
+  {
+    name: "１・１・１・１",
+    bpm: 45,
+    beats: [
+      [{ degree: "ド", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }],
+      [{ degree: "レ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }],
+      [{ degree: "ミ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }],
+      [{ degree: "ソ", oct: 0, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 1 }],
+      [{ degree: "ラ", oct: 0, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 1 }, { degree: "ミ", oct: 1, dur: 1 }],
+      [{ degree: "ド", oct: 1, dur: 4 }],
+      null,
+      [{ degree: "ミ", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }],
+      [{ degree: "レ", oct: 1, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }],
+      [{ degree: "ド", oct: 1, dur: 1 }, { degree: "ラ", oct: 1, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }],
+      [{ degree: "ラ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 1 }],
+      [{ degree: "ソ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 1 }, { degree: "ド", oct: 0, dur: 1 }],
+      [{ degree: "ド", oct: 0, dur: 4 }],
+      null,
+      [{ degree: "ド", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 1 }, { degree: "ド", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 1 }],
+      [{ degree: "レ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }],
+      [{ degree: "ミ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }],
+      [{ degree: "ソ", oct: 0, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }],
+      [{ degree: "ラ", oct: 0, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }],
+      [{ degree: "ド", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 1 }],
+      [{ degree: "レ", oct: 1, dur: 1 }, { degree: "ミ", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 1 }, { degree: "ミ", oct: 1, dur: 1 }],
+      [{ degree: "ド", oct: 1, dur: 4 }],
+      null,
+      [{ degree: "ミ", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 1 }, { degree: "ミ", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 1 }],
+      [{ degree: "レ", oct: 1, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }],
+      [{ degree: "ド", oct: 1, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }],
+      [{ degree: "ラ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }],
+      [{ degree: "ソ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }],
+      [{ degree: "ミ", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 1 }],
+      [{ degree: "レ", oct: 0, dur: 1 }, { degree: "ド", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 1 }, { degree: "ド", oct: 0, dur: 1 }],
+      [{ degree: "ド", oct: 0, dur: 4 }],
+      null,
+      [{ degree: "レ", oct: 0, dur: 1 }, { degree: "ド", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }],
+      [{ degree: "ミ", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }],
+      [{ degree: "ソ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }],
+      [{ degree: "ラ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }, { degree: "ド", oct: 0, dur: 1 }],
+      [{ degree: "ド", oct: 1, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 1 }],
+      [{ degree: "レ", oct: 1, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 1 }, { degree: "ミ", oct: 1, dur: 1 }],
+      [{ degree: "ド", oct: 1, dur: 4 }],
+      null,
+      [{ degree: "レ", oct: 1, dur: 1 }, { degree: "ミ", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }],
+      [{ degree: "ド", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }],
+      [{ degree: "ラ", oct: 0, dur: 1 }, { degree: "ド", oct: 1, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }],
+      [{ degree: "ソ", oct: 0, dur: 1 }, { degree: "ラ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }],
+      [{ degree: "ミ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 1 }],
+      [{ degree: "レ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 1 }, { degree: "ド", oct: 0, dur: 1 }],
+      [{ degree: "ド", oct: 0, dur: 4 }],
+    ],
+  },
+  {
+    name: "１・２・１",
+    bpm: 45,
+    beats: [
+      [{ degree: "ド", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 2 }, { degree: "ド", oct: 0, dur: 1 }],
+      [{ degree: "レ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 2 }, { degree: "レ", oct: 0, dur: 1 }],
+      [{ degree: "ミ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 2 }, { degree: "ミ", oct: 0, dur: 1 }],
+      [{ degree: "ソ", oct: 0, dur: 1 }, { degree: "ラ", oct: 0, dur: 2 }, { degree: "ソ", oct: 0, dur: 1 }],
+      [{ degree: "ラ", oct: 0, dur: 1 }, { degree: "ド", oct: 1, dur: 2 }, { degree: "ラ", oct: 0, dur: 1 }],
+      [{ degree: "ド", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 2 }, { degree: "ド", oct: 1, dur: 1 }],
+      [{ degree: "レ", oct: 1, dur: 1 }, { degree: "ミ", oct: 1, dur: 2 }, { degree: "レ", oct: 1, dur: 1 }],
+      [{ degree: "ド", oct: 1, dur: 4 }],
+      null,
+      [{ degree: "ミ", oct: 1, dur: 1 }, { degree: "レ", oct: 1, dur: 2 }, { degree: "ミ", oct: 1, dur: 1 }],
+      [{ degree: "レ", oct: 1, dur: 1 }, { degree: "ド", oct: 1, dur: 2 }, { degree: "レ", oct: 1, dur: 1 }],
+      [{ degree: "ド", oct: 1, dur: 1 }, { degree: "ラ", oct: 0, dur: 2 }, { degree: "ド", oct: 1, dur: 1 }],
+      [{ degree: "ラ", oct: 0, dur: 1 }, { degree: "ソ", oct: 0, dur: 2 }, { degree: "ラ", oct: 0, dur: 1 }],
+      [{ degree: "ソ", oct: 0, dur: 1 }, { degree: "ミ", oct: 0, dur: 2 }, { degree: "ソ", oct: 0, dur: 1 }],
+      [{ degree: "ミ", oct: 0, dur: 1 }, { degree: "レ", oct: 0, dur: 2 }, { degree: "ミ", oct: 0, dur: 1 }],
+      [{ degree: "レ", oct: 0, dur: 1 }, { degree: "ド", oct: 0, dur: 2 }, { degree: "レ", oct: 0, dur: 1 }],
+      [{ degree: "ド", oct: 0, dur: 4 }],
+    ],
+  },
 ];
 
 const C4_FREQ = 261.6255653005986;
@@ -138,7 +332,9 @@ const state = {
     timerId: null,
   },
   chant: {
-    activeIndex: null, // 再生中のとなえ練習パターンの番号（0〜7）。再生していなければnull
+    selectedIndex: 0, // 選択中のとなえ練習パターンの番号（0〜7）
+    scale: "major", // "major"（長音階）または "minor"（短音階）
+    playing: false, // 再生中かどうか（カウントイン中も含む）
     timers: [], // setTimeoutのID一覧（停止時にまとめてclearTimeoutする）
     activeNotes: [], // 現在鳴っている{osc, gain}の一覧（途中停止時に即フェードアウトさせる）
   },
@@ -179,6 +375,8 @@ const el = {
   lockSubmitBtn: document.getElementById("lockSubmitBtn"),
   lockError: document.getElementById("lockError"),
   chantGrid: document.getElementById("chantGrid"),
+  chantScaleToggle: document.getElementById("chantScaleToggle"),
+  chantStartBtn: document.getElementById("chantStartBtn"),
 };
 
 /* =========================================================
@@ -743,20 +941,22 @@ function stopMetronome() {
 }
 
 /* =========================================================
-   となえ練習（ピッチ音を聞きながら一緒に唱える練習。全8パターン予定）
+   となえ練習（ピッチ音を聞きながら一緒に唱える練習。全8パターン）
    ========================================================= */
 
-// 基準「ド」からの相対音程（degree・oct）を実際の周波数に変換する。
+// 基準「ド」からの相対音程（degree・oct・scale）を実際の周波数に変換する。
 // プレビュー再生（playDegreePreview）と同じく、iPhone内蔵スピーカーでも聞こえるよう
 // computePreviewBaseFreq（「ー2」を「ー1」相当に補正した基準周波数）を使う。
-function computeChantNoteFreq(note) {
-  const semitone = DEGREE_SEMITONES[note.degree];
+function computeChantNoteFreq(note, scale) {
+  const semitone = degreeSemitone(note.degree, scale);
   return computePreviewBaseFreq() * Math.pow(2, semitone / 12) * Math.pow(2, note.oct);
 }
 
-// 音名リング上で、指定した音名（ドレミ…）に対応する要素を探す
-function findChantRingEl(degree) {
-  const posIndex = NINE_POSITIONS.findIndex((p) => p.label === degree);
+// 音名リング上で、指定した半音差（オクターブは無視した0〜11の値）に対応する要素を探す。
+// 短音階時は実際に鳴る半音（レ#相当・ソ#相当）に対応する「ミ短」「ラ短」の区画がハイライトされる。
+function findChantRingElBySemitone(semitone) {
+  const norm = ((semitone % 12) + 12) % 12;
+  const posIndex = NINE_POSITIONS.findIndex((p) => p.semitone === norm);
   if (posIndex < 0) return null;
   return el.noteRing.querySelector(`.ring-note[data-index="${posIndex}"]`);
 }
@@ -785,85 +985,162 @@ function stopChantImmediate() {
 
 function resetChantUI() {
   document.querySelectorAll(".ring-note.chant-target").forEach((n) => n.classList.remove("chant-target"));
-  document.querySelectorAll(".chant-btn.playing").forEach((b) => b.classList.remove("playing"));
+  el.chantStartBtn.textContent = "START";
+  el.chantStartBtn.classList.remove("running");
+  el.chantGrid.querySelectorAll(".chant-btn").forEach((b) => (b.disabled = false));
+  el.chantScaleToggle.disabled = false;
 }
 
 function stopChantPattern() {
   clearChantTimers();
   stopChantImmediate();
   resetChantUI();
-  state.chant.activeIndex = null;
+  state.chant.playing = false;
 }
 
-// パターン内の全ノートを事前にまとめてスケジューリングする（曲全体が短いためlookahead方式は不要）。
-// レガート：各音は次の音の直前まで伸ばし、ポップ音防止のためごく短いアタック/リリースだけ付ける。
-// 各ノートの発音区間に合わせ、音名リングの対応区画に`chant-target`クラスを付け外しして
-// 「今どの音が鳴っているか」を緑の光で示す（マイクで検出した実際の声の色付け＝activeとは別枠の表示）。
-function playChantPattern(patternIndex, btnEl) {
-  const pattern = CHANT_PATTERNS[patternIndex];
-  if (!pattern) return; // 準備中のパターン
+// 選択中のパターンボタンに.selectedクラスを付け替える
+function updateChantSelectionUI() {
+  el.chantGrid.querySelectorAll(".chant-btn").forEach((b) => {
+    b.classList.toggle("selected", Number(b.dataset.patternIndex) === state.chant.selectedIndex);
+  });
+}
 
-  if (state.chant.activeIndex === patternIndex) {
-    // 再生中の同じボタンをもう一度押したら停止する
-    stopChantPattern();
-    return;
-  }
-  stopChantPattern(); // 別のパターンが再生中なら止めてから切り替える
+function selectChantPattern(index) {
+  if (state.chant.playing) return; // 再生中はパターン切り替えを禁止
+  state.chant.selectedIndex = index;
+  updateChantSelectionUI();
+}
 
-  const ctx = ensureAudioCtx();
-  state.chant.activeIndex = patternIndex;
-  btnEl.classList.add("playing");
+function setChantScale(scale) {
+  if (state.chant.playing) return; // 再生中は音階切り替えを禁止
+  state.chant.scale = scale;
+  el.chantScaleToggle.textContent = scale === "minor" ? "短音階" : "長音階";
+  el.chantScaleToggle.classList.toggle("active", scale === "minor");
+}
 
-  const beatDuration = 60 / pattern.bpm;
-  const noteGap = 0.03; // 次の音との間に置くごく短い無音（ポップ音防止）
-  const startDelay = 0.05;
-  const now = ctx.currentTime;
+function toggleChantScale() {
+  setChantScale(state.chant.scale === "minor" ? "major" : "minor");
+}
 
-  pattern.notes.forEach((note, i) => {
-    if (!note) return; // 休止（音を鳴らさない）
+// 1つの音符イベントをスケジューリングする（レガート：次の音の直前まで伸ばし、
+// ポップ音防止のためごく短いアタック/リリースだけ付ける）。音名リングの対応区画に
+// chant-targetクラスを付け外しして「今どの音が鳴っているか」を緑の光で示す。
+function scheduleChantNote(ctx, freq, startTime, endTime, ringEl) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = "sine";
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0, startTime);
+  gain.gain.linearRampToValueAtTime(state.playbackVolume, startTime + 0.02);
+  gain.gain.setValueAtTime(state.playbackVolume, Math.max(startTime + 0.02, endTime - 0.03));
+  gain.gain.linearRampToValueAtTime(0, endTime);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(startTime);
+  osc.stop(endTime + 0.02);
 
-    const startTime = now + startDelay + i * beatDuration;
-    const endTime = startTime + beatDuration - noteGap;
+  const noteRef = { osc, gain };
+  state.chant.activeNotes.push(noteRef);
 
+  const onDelayMs = Math.max(0, (startTime - ctx.currentTime) * 1000);
+  const offDelayMs = Math.max(0, (endTime - ctx.currentTime) * 1000);
+  state.chant.timers.push(
+    setTimeout(() => {
+      if (ringEl) ringEl.classList.add("chant-target");
+    }, onDelayMs)
+  );
+  state.chant.timers.push(
+    setTimeout(() => {
+      if (ringEl) ringEl.classList.remove("chant-target");
+      const idx = state.chant.activeNotes.indexOf(noteRef);
+      if (idx >= 0) state.chant.activeNotes.splice(idx, 1);
+    }, offDelayMs)
+  );
+}
+
+// パターン開始前に2拍ぶんのカウントイン（表拍ピン・裏拍ポン・表拍ピン・裏拍ポン）を鳴らす。
+// 音色はメトロノームの通常速度と同じ（表拍1500Hz/0.6、裏拍700Hz/0.2）。
+function scheduleChantCountIn(ctx, startTime, bpm) {
+  const beatDuration = 60 / bpm;
+  const subDuration = beatDuration / 2;
+  for (let i = 0; i < 4; i++) {
+    const isOnbeat = i % 2 === 0;
+    const t = startTime + i * subDuration;
+    const freq = isOnbeat ? 1500 : 700;
+    const level = isOnbeat ? 0.6 : 0.2;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = computeChantNoteFreq(note);
-    gain.gain.setValueAtTime(0, startTime);
-    gain.gain.linearRampToValueAtTime(state.playbackVolume, startTime + 0.02);
-    gain.gain.setValueAtTime(state.playbackVolume, endTime - 0.03);
-    gain.gain.linearRampToValueAtTime(0, endTime);
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(level, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
     osc.connect(gain);
     gain.connect(ctx.destination);
-    osc.start(startTime);
-    osc.stop(endTime + 0.02);
-
-    const noteRef = { osc, gain };
-    state.chant.activeNotes.push(noteRef);
-
-    const ringEl = findChantRingEl(note.degree);
-    const onDelayMs = Math.max(0, (startTime - ctx.currentTime) * 1000);
-    const offDelayMs = Math.max(0, (endTime - ctx.currentTime) * 1000);
-
+    osc.start(t);
+    osc.stop(t + 0.07);
+    state.chant.activeNotes.push({ osc, gain });
+    const offDelayMs = Math.max(0, (t + 0.07 - ctx.currentTime) * 1000);
     state.chant.timers.push(
       setTimeout(() => {
-        if (ringEl) ringEl.classList.add("chant-target");
-      }, onDelayMs)
-    );
-    state.chant.timers.push(
-      setTimeout(() => {
-        if (ringEl) ringEl.classList.remove("chant-target");
-        const idx = state.chant.activeNotes.indexOf(noteRef);
+        const idx = state.chant.activeNotes.findIndex((n) => n.osc === osc);
         if (idx >= 0) state.chant.activeNotes.splice(idx, 1);
       }, offDelayMs)
     );
+  }
+  return 2 * beatDuration; // カウントインの所要時間（2拍ぶん）
+}
+
+// 選択中のパターン・音階で、カウントイン→本編の順に一括スケジューリングする
+// （曲全体が短いためメトロノームのようなlookahead方式は不要）。
+// 1拍は4単位に分割され、各音符はunit数に応じた長さ（beatDuration/4 × dur）で鳴る。
+function playChantPattern() {
+  if (state.chant.playing) {
+    stopChantPattern();
+    return;
+  }
+
+  const pattern = CHANT_PATTERNS[state.chant.selectedIndex];
+  const scale = state.chant.scale;
+  const ctx = ensureAudioCtx();
+
+  state.chant.playing = true;
+  el.chantStartBtn.textContent = "STOP";
+  el.chantStartBtn.classList.add("running");
+  el.chantGrid.querySelectorAll(".chant-btn").forEach((b) => (b.disabled = true));
+  el.chantScaleToggle.disabled = true;
+
+  const beatDuration = 60 / pattern.bpm;
+  const unitDuration = beatDuration / 4;
+  const noteGap = Math.min(0.03, unitDuration * 0.2); // 次の音との間に置くごく短い無音（ポップ音防止）
+  const startDelay = 0.05;
+  const now = ctx.currentTime;
+
+  const countInDuration = scheduleChantCountIn(ctx, now + startDelay, pattern.bpm);
+  let cursor = now + startDelay + countInDuration;
+
+  pattern.beats.forEach((beat) => {
+    if (!beat) {
+      // 1拍まるごと休止
+      cursor += beatDuration;
+      return;
+    }
+    let unitOffset = 0;
+    beat.forEach((note) => {
+      const startTime = cursor + unitOffset * unitDuration;
+      const endTime = startTime + note.dur * unitDuration - noteGap;
+      const freq = computeChantNoteFreq(note, scale);
+      const semitone = degreeSemitone(note.degree, scale);
+      const ringEl = findChantRingElBySemitone(semitone);
+      scheduleChantNote(ctx, freq, startTime, endTime, ringEl);
+      unitOffset += note.dur;
+    });
+    cursor += beatDuration;
   });
 
-  const totalDurationMs = (startDelay + pattern.notes.length * beatDuration) * 1000;
+  const totalDurationMs = (cursor - now) * 1000;
   state.chant.timers.push(
     setTimeout(() => {
       resetChantUI();
-      state.chant.activeIndex = null;
+      state.chant.playing = false;
     }, totalDurationMs + 50)
   );
 }
@@ -900,8 +1177,31 @@ function wireEvents() {
   el.chantGrid.addEventListener("click", (e) => {
     const btn = e.target.closest(".chant-btn");
     if (!btn || btn.disabled) return;
-    playChantPattern(Number(btn.dataset.patternIndex), btn);
+    selectChantPattern(Number(btn.dataset.patternIndex));
   });
+
+  el.chantScaleToggle.addEventListener("click", () => {
+    if (el.chantScaleToggle.disabled) return;
+    toggleChantScale();
+  });
+
+  el.chantStartBtn.addEventListener("click", () => {
+    playChantPattern();
+  });
+}
+
+// 8パターンぶんの選択ボタンをCHANT_PATTERNSの名称から動的生成する
+function buildChantButtons() {
+  el.chantGrid.innerHTML = "";
+  CHANT_PATTERNS.forEach((pattern, i) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "chant-btn";
+    btn.dataset.patternIndex = String(i);
+    btn.textContent = pattern.name;
+    el.chantGrid.appendChild(btn);
+  });
+  updateChantSelectionUI();
 }
 
 /* =========================================================
@@ -916,6 +1216,8 @@ function init() {
   updateNoteRingHighlight();
   setDoubleSpeed(state.metro.doubleSpeed);
   el.metroToggle.disabled = true;
+  buildChantButtons();
+  setChantScale(state.chant.scale);
   wireEvents();
   initAdvSettings();
 }
