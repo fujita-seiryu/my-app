@@ -407,7 +407,7 @@ html, body {
   border-color: var(--red);
 }
 
-/* ---------- となえ練習（ピッチ音を聞きながら一緒に唱える練習） ---------- */
+/* ---------- トレーニング（旧称: となえ練習。ピッチ音を聞きながら一緒に唱える練習） ---------- */
 .chant {
   border-top: 1px solid var(--border);
   padding: 14px 2px calc(14px + env(safe-area-inset-bottom));
@@ -418,40 +418,19 @@ html, body {
   margin: 0 0 10px;
   font-weight: 700;
 }
-.chant-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
-.chant-btn {
+.chant-select {
+  width: 100%;
   background: var(--panel-2);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 12px 6px;
-  font-size: 14px;
+  padding: 12px 10px;
+  font-size: 15px;
   font-weight: 700;
-  cursor: pointer;
-  line-height: 1.5;
 }
-.chant-btn-sub {
-  display: block;
-  font-size: 10px;
-  font-weight: 400;
-  color: var(--text-dim);
-}
-.chant-btn:disabled {
+.chant-select:disabled {
   opacity: 0.45;
   cursor: default;
-}
-.chant-btn.selected {
-  background: var(--accent-beat);
-  color: #2b1e00;
-  border-color: var(--accent-beat);
-  box-shadow: 0 0 10px 1px rgba(255, 207, 64, 0.6);
-}
-.chant-btn.selected .chant-btn-sub {
-  color: #2b1e00;
 }
 .chant-controls {
   display: flex;
