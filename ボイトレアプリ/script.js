@@ -374,7 +374,7 @@ const el = {
   lockCodeInput: document.getElementById("lockCodeInput"),
   lockSubmitBtn: document.getElementById("lockSubmitBtn"),
   lockError: document.getElementById("lockError"),
-  chantGrid: document.getElementById("chantGrid"),
+  chantSelect: document.getElementById("chantSelect"),
   chantScaleToggle: document.getElementById("chantScaleToggle"),
   chantStartBtn: document.getElementById("chantStartBtn"),
 };
@@ -987,7 +987,7 @@ function resetChantUI() {
   document.querySelectorAll(".ring-note.chant-target").forEach((n) => n.classList.remove("chant-target"));
   el.chantStartBtn.textContent = "START";
   el.chantStartBtn.classList.remove("running");
-  el.chantGrid.querySelectorAll(".chant-btn").forEach((b) => (b.disabled = false));
+  el.chantSelect.disabled = false;
   el.chantScaleToggle.disabled = false;
 }
 
@@ -998,11 +998,9 @@ function stopChantPattern() {
   state.chant.playing = false;
 }
 
-// 選択中のパターンボタンに.selectedクラスを付け替える
+// プルダウンの選択値を、現在のstate.chant.selectedIndexに合わせる
 function updateChantSelectionUI() {
-  el.chantGrid.querySelectorAll(".chant-btn").forEach((b) => {
-    b.classList.toggle("selected", Number(b.dataset.patternIndex) === state.chant.selectedIndex);
-  });
+  el.chantSelect.value = String(state.chant.selectedIndex);
 }
 
 function selectChantPattern(index) {
@@ -1105,7 +1103,7 @@ function playChantPattern() {
   state.chant.playing = true;
   el.chantStartBtn.textContent = "STOP";
   el.chantStartBtn.classList.add("running");
-  el.chantGrid.querySelectorAll(".chant-btn").forEach((b) => (b.disabled = true));
+  el.chantSelect.disabled = true;
   el.chantScaleToggle.disabled = true;
 
   const beatDuration = 60 / pattern.bpm;
@@ -1174,10 +1172,8 @@ function wireEvents() {
     else startMetronome();
   });
 
-  el.chantGrid.addEventListener("click", (e) => {
-    const btn = e.target.closest(".chant-btn");
-    if (!btn || btn.disabled) return;
-    selectChantPattern(Number(btn.dataset.patternIndex));
+  el.chantSelect.addEventListener("change", () => {
+    selectChantPattern(Number(el.chantSelect.value));
   });
 
   el.chantScaleToggle.addEventListener("click", () => {
@@ -1190,16 +1186,14 @@ function wireEvents() {
   });
 }
 
-// 8パターンぶんの選択ボタンをCHANT_PATTERNSの名称から動的生成する
-function buildChantButtons() {
-  el.chantGrid.innerHTML = "";
+// 8パターンぶんの選択肢をCHANT_PATTERNSの名称からプルダウン(<select>)として動的生成する
+function buildChantSelect() {
+  el.chantSelect.innerHTML = "";
   CHANT_PATTERNS.forEach((pattern, i) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "chant-btn";
-    btn.dataset.patternIndex = String(i);
-    btn.textContent = pattern.name;
-    el.chantGrid.appendChild(btn);
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = pattern.name;
+    el.chantSelect.appendChild(opt);
   });
   updateChantSelectionUI();
 }
@@ -1216,7 +1210,7 @@ function init() {
   updateNoteRingHighlight();
   setDoubleSpeed(state.metro.doubleSpeed);
   el.metroToggle.disabled = true;
-  buildChantButtons();
+  buildChantSelect();
   setChantScale(state.chant.scale);
   wireEvents();
   initAdvSettings();
