@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>祭壇センター出し</title>
+<style>
+  :root {
+    --accent: #d4af37;
+    --ok: #3ddc84;
+    --ng: #ff5252;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: #000; overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+    color: #fff;
+    touch-action: none;
+  }
+  #stage {
+    position: fixed; inset: 0; overflow: hidden;
+  }
+  #videoWrap {
+    position: absolute; inset: 0; overflow: hidden;
+  }
+  video {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    background: #111;
+    transform-origin: center center;
+    will-change: transform;
+  }
+  canvas#overlay {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+  }
+  #startScreen {
+    position: fixed; inset: 0; z-index: 20;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: #0b0b0d; text-align: center; padding: 24px;
+  }
+  #startScreen h1 { font-size: 20px; margin: 0 0 8px; font-weight: 600; letter-spacing: .02em; }
+  #startScreen p { font-size: 13px; color: #aaa; line-height: 1.7; margin: 0 0 24px; max-width: 320px; }
+  #startBtn {
+    background: var(--accent); color: #1a1a1a; border: none; border-radius: 999px;
+    padding: 14px 36px; font-size: 15px; font-weight: 600; letter-spacing: .05em;
+  }
+  #errBox { color: var(--ng); font-size: 12px; margin-top: 16px; max-width: 300px; display: none; white-space: pre-line; }
+
+  .hud {
+    position: fixed; left: 0; right: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 14px;
+  }
+  #topBar { top: 0; padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: 10px;
+    background: linear-gradient(rgba(0,0,0,.55), transparent); }
+  #topBar .title { font-size: 13px; font-weight: 600; letter-spacing: .05em; opacity: .9; }
+  #zoomInfo { font-size: 11px; color: #ccc; background: rgba(255,255,255,.1); padding: 5px 10px; border-radius: 999px; }
+
+  #bottomBar {
+    bottom: 0; flex-direction: column; gap: 10px;
+    padding-top: 10px; padding-bottom: max(16px, env(safe-area-inset-bottom));
+    background: linear-gradient(transparent, rgba(0,0,0,.6));
+  }
+  #status {
+    font-size: 13px; font-weight: 700; letter-spacing: .03em;
+    padding: 8px 16px; border-radius: 999px; background: rgba(0,0,0,.4);
+    min-width: 220px; text-align: center;
+  }
+  #status.ok { color: var(--ok); }
+  #status.neutral { color: #ddd; }
+
+  #controls { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; flex-wrap: wrap; }
+  .ctlBtn {
+    background: rgba(255,255,255,.12); color: #fff; border: none; border-radius: 12px;
+    padding: 10px 13px; font-size: 12px; font-weight: 600; line-height: 1.3;
+  }
+  .ctlBtn.primary { background: var(--accent); color: #1a1a1a; }
+  .ctlBtn:active { opacity: .7; }
+  #zoomRow { display: flex; align-items: center; gap: 6px; }
+  #zoomRow .ctlBtn { padding: 10px 16px; font-size: 15px; }
+</style>
+</head>
+<body>
+
+<div id="startScreen">
+  <h1>祭壇センター出し</h1>
+  <p>画面中央の枠を位牌・写真・骨壺などの輪郭に合わせるだけで、左右対称・水平のズレが視覚的にわかります。<br>レーザー水平器は不要です。</p>
+  <button id="startBtn">カメラを起動</button>
+  <div id="errBox"></div>
+</div>
+
+<div id="stage" style="display:none;">
+  <div id="videoWrap">
+    <video id="video" autoplay playsinline muted></video>
+  </div>
+  <canvas id="overlay"></canvas>
+</div>
+
+<div class="hud" id="topBar" style="display:none;">
+  <div class="title">センター出し</div>
+  <div id="zoomInfo">1.0x</div>
+</div>
+
+<div class="hud" id="bottomBar" style="display:none;">
+  <div id="status" class="neutral">枠の角(コーナー)をドラッグしてサイズ調整</div>
+  <div id="controls">
+    <button class="ctlBtn" id="flipBtn">カメラ切替</button>
+    <button class="ctlBtn" id="gridBtn">グリッド: OFF</button>
+    <button class="ctlBtn primary" id="resetBtn">枠をリセット</button>
+    <div id="zoomRow">
+      <button class="ctlBtn" id="zoomOutBtn">－</button>
+      <button class="ctlBtn" id="zoomInBtn">＋</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const startScreen = document.getElementById('startScreen');
+  const startBtn = document.getElementById('startBtn');
+  const errBox = document.getElementById('errBox');
+  const stage = document.getElementById('stage');
+  const topBar = document.getElementById('topBar');
+  const bottomBar = document.getElementById('bottomBar');
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('overlay');
+  const ctx = canvas.getContext('2d');
+  const statusEl = document.getElementById('status');
+  const flipBtn = document.getElementById('flipBtn');
+  const gridBtn = document.getElementById('gridBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const zoomInfo = document.getElementById('zoomInfo');
+  const zoomInBtn = document.getElementById('zoomInBtn');
+  const zoomOutBtn = document.getElementById('zoomOutBtn');
+
+  let stream = null;
+  let track = null;
+  let facingMode = 'environment';
+  let gridOn = false;
+
+  // --- ズーム関連 ---
+  let zoomMode = 'digital'; // 'native'(光学/ハイブリッド, track制約) | 'digital'(CSS拡大)
+  let zoomCaps = null; // {min, max, step}
+  let zoomVal = 1.0;
+  const DIGITAL_MAX = 4.0;
+
+  // --- 中央フレーム(矩形ガイド) ---
+  let halfW = 90, halfH = 130; // 論理px
+  const MIN_HALF = 40;
+  let activeHandle = null; // 'corner' | 'right' | 'bottom' | null
+  const HANDLE_HIT = 30;
+
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    halfW = Math.min(halfW, window.innerWidth / 2 - 10);
+    halfH = Math.min(halfH, window.innerHeight / 2 - 10);
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  async function startCamera() {
+    try {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: facingMode }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false
+      });
+      video.srcObject = stream;
+      await video.play();
+      track = stream.getVideoTracks()[0];
+      setupZoom();
+      return true;
+    } catch (e) {
+      errBox.style.display = 'block';
+      errBox.textContent = 'カメラを起動できませんでした: ' + (e.message || e.name) +
+        '\nHTTPS(または localhost)でこのページを開き、カメラ権限を許可してください。';
+      return false;
+    }
+  }
+
+  function setupZoom() {
+    zoomVal = 1.0;
+    zoomMode = 'digital';
+    zoomCaps = null;
+    try {
+      const caps = track.getCapabilities ? track.getCapabilities() : null;
+      if (caps && caps.zoom && caps.zoom.max > caps.zoom.min) {
+        zoomMode = 'native';
+        zoomCaps = caps.zoom;
+        zoomVal = caps.zoom.min;
+        track.applyConstraints({ advanced: [{ zoom: zoomVal }] }).catch(() => {});
+      }
+    } catch (e) { /* 非対応端末は digital のまま */ }
+    video.style.transform = 'scale(1)';
+    updateZoomInfo();
+  }
+
+  function updateZoomInfo() {
+    const label = zoomMode === 'native' ? '光学' : 'デジタル';
+    zoomInfo.textContent = zoomVal.toFixed(1) + 'x (' + label + ')';
+  }
+
+  function applyZoom(newVal) {
+    if (zoomMode === 'native' && zoomCaps) {
+      newVal = Math.max(zoomCaps.min, Math.min(zoomCaps.max, newVal));
+      zoomVal = newVal;
+      track.applyConstraints({ advanced: [{ zoom: zoomVal }] }).catch(() => {});
+    } else {
+      newVal = Math.max(1.0, Math.min(DIGITAL_MAX, newVal));
+      zoomVal = newVal;
+      video.style.transform = 'scale(' + zoomVal + ')';
+    }
+    updateZoomInfo();
+  }
+
+  startBtn.addEventListener('click', async () => {
+    resizeCanvas();
+    const ok = await startCamera();
+    if (!ok) return;
+    startScreen.style.display = 'none';
+    stage.style.display = 'block';
+    topBar.style.display = 'flex';
+    bottomBar.style.display = 'flex';
+    requestAnimationFrame(draw);
+  });
+
+  flipBtn.addEventListener('click', async () => {
+    facingMode = facingMode === 'environment' ? 'user' : 'environment';
+    await startCamera();
+  });
+
+  gridBtn.addEventListener('click', () => {
+    gridOn = !gridOn;
+    gridBtn.textContent = 'グリッド: ' + (gridOn ? 'ON' : 'OFF');
+  });
+
+  resetBtn.addEventListener('click', () => {
+    halfW = 90; halfH = 130;
+  });
+
+  zoomInBtn.addEventListener('click', () => {
+    const step = zoomMode === 'native' && zoomCaps ? (zoomCaps.step || (zoomCaps.max - zoomCaps.min) / 10) : 0.2;
+    applyZoom(zoomVal + step);
+  });
+  zoomOutBtn.addEventListener('click', () => {
+    const step = zoomMode === 'native' && zoomCaps ? (zoomCaps.step || (zoomCaps.max - zoomCaps.min) / 10) : 0.2;
+    applyZoom(zoomVal - step);
+  });
+
+  // --- 枠のドラッグ操作(コーナー/辺の中点をつまんでリサイズ) ---
+  function getHandles() {
+    const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+    return {
+      corner: { x: cx + halfW, y: cy + halfH },
+      right:  { x: cx + halfW, y: cy },
+      bottom: { x: cx, y: cy + halfH }
+    };
+  }
+  function dist(x1, y1, x2, y2) { return Math.hypot(x1 - x2, y1 - y2); }
+
+  let pointers = new Map();
+  let pinchStartDist = null;
+  let pinchStartZoom = null;
+
+  canvas.addEventListener('pointerdown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    pointers.set(e.pointerId, { x, y });
+
+    if (pointers.size === 1) {
+      const h = getHandles();
+      if (dist(x, y, h.corner.x, h.corner.y) <= HANDLE_HIT) activeHandle = 'corner';
+      else if (dist(x, y, h.right.x, h.right.y) <= HANDLE_HIT) activeHandle = 'right';
+      else if (dist(x, y, h.bottom.x, h.bottom.y) <= HANDLE_HIT) activeHandle = 'bottom';
+      else activeHandle = null;
+    }
+    if (pointers.size === 2) {
+      activeHandle = null;
+      const pts = Array.from(pointers.values());
+      pinchStartDist = dist(pts[0].x, pts[0].y, pts[1].x, pts[1].y);
+      pinchStartZoom = zoomVal;
+    }
+    canvas.setPointerCapture(e.pointerId);
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    pointers.set(e.pointerId, { x, y });
+
+    if (pointers.size === 2 && pinchStartDist) {
+      const pts = Array.from(pointers.values());
+      const d = dist(pts[0].x, pts[0].y, pts[1].x, pts[1].y);
+      const ratio = d / pinchStartDist;
+      applyZoom(pinchStartZoom * ratio);
+      return;
+    }
+
+    if (activeHandle) {
+      const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+      if (activeHandle === 'corner' || activeHandle === 'right') {
+        halfW = Math.max(MIN_HALF, Math.min(window.innerWidth / 2 - 10, Math.abs(x - cx)));
+      }
+      if (activeHandle === 'corner' || activeHandle === 'bottom') {
+        halfH = Math.max(MIN_HALF, Math.min(window.innerHeight / 2 - 10, Math.abs(y - cy)));
+      }
+    }
+  });
+
+  function endPointer(e) {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) { pinchStartDist = null; pinchStartZoom = null; }
+    if (pointers.size === 0) activeHandle = null;
+  }
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+
+  function draw() {
+    const w = window.innerWidth, h = window.innerHeight;
+    ctx.clearRect(0, 0, w, h);
+    const cx = w / 2, cy = h / 2;
+
+    if (gridOn) {
+      ctx.strokeStyle = 'rgba(255,255,255,.25)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 3; i++) {
+        ctx.beginPath(); ctx.moveTo(w * i / 3, 0); ctx.lineTo(w * i / 3, h); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, h * i / 3); ctx.lineTo(w, h * i / 3); ctx.stroke();
+      }
+    }
+
+    // 中心十字(基準線・水色)
+    ctx.save();
+    ctx.strokeStyle = 'rgba(79,195,247,.9)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // 中央フレーム(常に画面中心を基準に左右・上下対称)
+    const left = cx - halfW, top = cy - halfH, boxW = halfW * 2, boxH = halfH * 2;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(212,175,55,.95)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(left, top, boxW, boxH);
+    ctx.restore();
+
+    // ハンドル
+    const handles = getHandles();
+    ctx.save();
+    ctx.fillStyle = 'rgba(212,175,55,.95)';
+    [handles.right, handles.bottom, handles.corner].forEach(p => {
+      ctx.beginPath(); ctx.arc(p.x, p.y, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 9, 0, Math.PI * 2); ctx.stroke();
+    });
+    ctx.restore();
+
+    // サイズ表示
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.font = '11px sans-serif';
+    ctx.fillText(Math.round(boxW) + ' x ' + Math.round(boxH) + ' px', left, top - 10 > 14 ? top - 10 : top + boxH + 20);
+    ctx.restore();
+
+    statusEl.className = 'neutral';
+    statusEl.textContent = '対象の輪郭を金色の枠に合わせる(枠は常に画面中心基準)';
+
+    requestAnimationFrame(draw);
+  }
+})();
+</script>
+</body>
+</html>
