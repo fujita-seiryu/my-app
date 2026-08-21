@@ -1,13 +1,604 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8" />
-<meta http-equiv="refresh" content="0; url=./voice-training/index.html" />
-<title>移動ドピッチトレーナー</title>
-<link rel="canonical" href="./voice-training/index.html" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>方便堂｜僧侶の「あったらいいな」を、かたちに。</title>
+<meta name="description" content="現場で感じた小さな違和感から生まれた道具たち。僧侶が作る、あったらいいなアプリの店「方便堂」。祭壇センター出しアプリ（無料）、御詠歌ピッチトレーナー（¥1,000）。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500;600;700&amp;family=Zen+Kaku+Gothic+New:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#211E1B;
+    --ink-soft:#4A453E;
+    --paper:#EDE7D8;
+    --paper-deep:#E3DBC7;
+    --indigo:#24425A;
+    --vermillion:#A63B2E;
+    --mist:#C9C2AE;
+    --line:#D8D0BC;
+    --radius:2px;
+    --measure:40rem;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Zen Kaku Gothic New', 'Hiragino Sans', sans-serif;
+    font-weight:400;
+    line-height:1.85;
+    -webkit-font-smoothing:antialiased;
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(36,66,90,0.04), transparent 45%),
+      radial-gradient(circle at 88% 92%, rgba(166,59,46,0.05), transparent 40%);
+  }
+
+  h1,h2,h3,.mincho{
+    font-family:'Shippori Mincho', serif;
+    font-weight:600;
+    letter-spacing:.04em;
+    color:var(--ink);
+  }
+
+  a{color:inherit;}
+  a:focus-visible, button:focus-visible{
+    outline:2px solid var(--indigo);
+    outline-offset:3px;
+  }
+
+  .wrap{
+    max-width:64rem;
+    margin:0 auto;
+    padding:0 1.5rem;
+  }
+
+  /* ---------- Header ---------- */
+  header.site{
+    padding:2.4rem 0 1.2rem;
+  }
+  .site-head-inner{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:.6rem 1.5rem;
+    border-bottom:1px solid var(--line);
+    padding-bottom:1.2rem;
+  }
+  .wordmark{
+    font-family:'Shippori Mincho', serif;
+    font-size:1.7rem;
+    font-weight:700;
+    letter-spacing:.14em;
+    margin:0;
+  }
+  .wordmark small{
+    display:block;
+    font-family:'Zen Kaku Gothic New', sans-serif;
+    font-size:.72rem;
+    font-weight:400;
+    letter-spacing:.08em;
+    color:var(--ink-soft);
+    margin-top:.35rem;
+  }
+  nav.site-nav{
+    display:flex;
+    gap:1.4rem;
+    font-size:.85rem;
+    letter-spacing:.03em;
+  }
+  nav.site-nav a{
+    text-decoration:none;
+    color:var(--ink-soft);
+    border-bottom:1px solid transparent;
+    padding-bottom:2px;
+    transition:color .2s ease, border-color .2s ease;
+  }
+  nav.site-nav a:hover{
+    color:var(--vermillion);
+    border-color:var(--vermillion);
+  }
+
+  /* ---------- Hero ---------- */
+  .hero{
+    position:relative;
+    padding:4.5rem 0 5rem;
+    overflow:hidden;
+  }
+  .hero-grid{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:2.5rem;
+    align-items:center;
+  }
+  @media(min-width:56rem){
+    .hero-grid{
+      grid-template-columns: 1.15fr .85fr;
+      gap:1rem;
+    }
+  }
+  .eyebrow{
+    font-size:.78rem;
+    letter-spacing:.22em;
+    color:var(--vermillion);
+    margin:0 0 1rem;
+    font-weight:700;
+  }
+  .hero h1{
+    font-size:clamp(1.9rem, 4.2vw, 2.9rem);
+    line-height:1.55;
+    margin:0 0 1.4rem;
+  }
+  .hero p.lead{
+    max-width:34rem;
+    color:var(--ink-soft);
+    font-size:1.02rem;
+  }
+  .hero .hoben-note{
+    margin-top:1.8rem;
+    padding-left:1.1rem;
+    border-left:2px solid var(--mist);
+    font-size:.88rem;
+    color:var(--ink-soft);
+    max-width:30rem;
+  }
+  .hero .hoben-note b{
+    color:var(--ink);
+    font-weight:700;
+  }
+
+  .enso-wrap{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .enso{
+    width:min(78vw, 300px);
+    height:auto;
+  }
+  .enso path{
+    fill:none;
+    stroke:var(--ink);
+    stroke-width:5;
+    stroke-linecap:round;
+    opacity:.82;
+    stroke-dasharray:1000;
+    stroke-dashoffset:1000;
+    animation:draw 2.6s ease-out .3s forwards;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .enso path{ animation:none; stroke-dashoffset:0; }
+  }
+  @keyframes draw{
+    to{ stroke-dashoffset:0; }
+  }
+
+  /* ---------- Products ---------- */
+  .products{
+    padding:1rem 0 4.5rem;
+  }
+  .section-head{
+    margin-bottom:2.2rem;
+  }
+  .section-head h2{
+    font-size:1.5rem;
+    margin:0 0 .5rem;
+  }
+  .section-head p{
+    color:var(--ink-soft);
+    font-size:.92rem;
+    margin:0;
+  }
+
+  .product{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:1.6rem;
+    padding:2.4rem 0;
+    border-top:1px solid var(--line);
+  }
+  .product:last-child{
+    border-bottom:1px solid var(--line);
+  }
+  @media(min-width:48rem){
+    .product{
+      grid-template-columns: 1fr 1.3fr;
+      gap:3rem;
+    }
+  }
+
+  .product-meta{
+    display:flex;
+    flex-direction:column;
+    gap:.9rem;
+  }
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:.4rem;
+    width:fit-content;
+    font-size:.76rem;
+    letter-spacing:.06em;
+    padding:.3rem .7rem;
+    border-radius:var(--radius);
+    font-weight:700;
+  }
+  .badge.free{
+    background:rgba(36,66,90,0.08);
+    color:var(--indigo);
+    border:1px solid rgba(36,66,90,0.25);
+  }
+  .badge.paid{
+    background:rgba(166,59,46,0.08);
+    color:var(--vermillion);
+    border:1px solid rgba(166,59,46,0.3);
+  }
+  .product h3{
+    font-size:1.5rem;
+    margin:0;
+    line-height:1.5;
+  }
+  .price-stamp{
+    font-family:'Shippori Mincho', serif;
+    font-size:1.6rem;
+    color:var(--vermillion);
+  }
+  .price-stamp.zero{
+    color:var(--indigo);
+  }
+  .price-stamp small{
+    font-family:'Zen Kaku Gothic New', sans-serif;
+    font-size:.7rem;
+    color:var(--ink-soft);
+    font-weight:400;
+    margin-left:.3rem;
+  }
+
+  .product-body p{
+    color:var(--ink-soft);
+    margin:0 0 1.1rem;
+    max-width:34rem;
+  }
+  .product-body p.strong-line{
+    color:var(--ink);
+    font-size:1.02rem;
+  }
+  .features{
+    list-style:none;
+    margin:0 0 1.6rem;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:.55rem;
+  }
+  .features li{
+    font-size:.88rem;
+    color:var(--ink-soft);
+    padding-left:1.2rem;
+    position:relative;
+  }
+  .features li::before{
+    content:"";
+    position:absolute;
+    left:0;
+    top:.55em;
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:var(--mist);
+  }
+
+  .cta{
+    display:inline-flex;
+    align-items:center;
+    gap:.5rem;
+    text-decoration:none;
+    font-size:.92rem;
+    font-weight:700;
+    letter-spacing:.03em;
+    padding:.85rem 1.5rem;
+    border-radius:var(--radius);
+    transition:transform .18s ease, box-shadow .18s ease;
+    width:fit-content;
+  }
+  .cta.primary{
+    background:var(--vermillion);
+    color:var(--paper);
+  }
+  .cta.secondary{
+    background:transparent;
+    color:var(--indigo);
+    border:1px solid var(--indigo);
+  }
+  .cta:hover{
+    transform:translateY(-2px);
+    box-shadow:0 8px 18px rgba(33,30,27,0.12);
+  }
+  .cta .arrow{
+    transition:transform .18s ease;
+  }
+  .cta:hover .arrow{
+    transform:translateX(3px);
+  }
+
+  .h3-row{
+    display:flex;
+    align-items:center;
+    gap:.7rem;
+  }
+  .icon-badge{
+    width:2.5rem;
+    height:2.5rem;
+    border-radius:24%;
+    object-fit:cover;
+    display:block;
+    box-shadow:0 3px 8px rgba(33,30,27,.2);
+    flex:0 0 auto;
+  }
+
+  .product-shot{
+    margin:.2rem 0 1.6rem;
+    max-width:24rem;
+  }
+  .product-shot img{
+    width:100%;
+    height:auto;
+    display:block;
+    border-radius:var(--radius);
+    border:1px solid var(--line);
+    box-shadow:0 10px 26px rgba(33,30,27,.10);
+  }
+  .product-shot figcaption{
+    font-size:.76rem;
+    color:var(--ink-soft);
+    margin-top:.55rem;
+    letter-spacing:.02em;
+  }
+
+  .media-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:1.4rem;
+    align-items:flex-start;
+    margin:.2rem 0 1.6rem;
+  }
+  .media-row .shot{
+    width:10rem;
+    flex:0 0 auto;
+  }
+  .media-row .shot img{
+    width:100%;
+    height:auto;
+    display:block;
+    border-radius:var(--radius);
+    border:1px solid var(--line);
+    box-shadow:0 10px 26px rgba(33,30,27,.10);
+  }
+  .media-row .shot figcaption{
+    font-size:.74rem;
+    color:var(--ink-soft);
+    margin-top:.5rem;
+  }
+  .media-row .demo{
+    flex:1 1 17rem;
+    min-width:15rem;
+  }
+  .media-row .demo video{
+    width:100%;
+    display:block;
+    border-radius:var(--radius);
+    border:1px solid var(--line);
+    background:#000;
+    box-shadow:0 10px 26px rgba(33,30,27,.10);
+  }
+  .media-row .demo figcaption{
+    font-size:.74rem;
+    color:var(--ink-soft);
+    margin-top:.5rem;
+  }
+
+  /* ---------- About ---------- */
+  .about{
+    padding:1rem 0 5rem;
+  }
+  .about-inner{
+    background:var(--paper-deep);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:2.6rem;
+    display:grid;
+    gap:1.2rem;
+  }
+  @media(min-width:48rem){
+    .about-inner{
+      grid-template-columns:.9fr 1.4fr;
+      padding:3rem;
+    }
+  }
+  .about-inner h2{
+    font-size:1.3rem;
+    margin:0;
+  }
+  .about-inner p{
+    margin:0 0 .9rem;
+    color:var(--ink-soft);
+    font-size:.94rem;
+  }
+  .about-inner p:last-child{margin-bottom:0;}
+
+  /* ---------- Footer ---------- */
+  footer.site{
+    border-top:1px solid var(--line);
+    padding:2.4rem 0 3rem;
+  }
+  .footer-inner{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:space-between;
+    gap:1rem;
+    align-items:center;
+  }
+  .footer-links{
+    display:flex;
+    flex-wrap:wrap;
+    gap:1.1rem;
+    font-size:.8rem;
+  }
+  .footer-links a{
+    text-decoration:none;
+    color:var(--ink-soft);
+  }
+  .footer-links a:hover{
+    color:var(--vermillion);
+  }
+  .footer-credit{
+    font-size:.76rem;
+    color:var(--mist);
+    letter-spacing:.03em;
+  }
+</style>
 </head>
 <body>
-<p>移動ドピッチトレーナーへ移動しています。自動的に移動しない場合は<a href="./voice-training/index.html">こちら</a>をクリックしてください。</p>
-<script>location.replace("./voice-training/index.html");</script>
+
+<header class="site">
+  <div class="wrap site-head-inner">
+    <p class="wordmark">方便堂
+      <small>僧侶の「あったらいいな」を、かたちに。</small>
+    </p>
+    <nav class="site-nav">
+      <a href="#products">アプリ一覧</a>
+      <a href="#about">方便堂について</a>
+      <a href="https://houbendou.stores.jp/inquiry">お問い合わせ</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <div class="hero-grid">
+      <div>
+        <p class="eyebrow">HOUBENDOU / 方便堂</p>
+        <h1>形を整えることは、<br>心を調えること。</h1>
+        <p class="lead">
+          儀式の現場に立つ中で感じてきた、小さな違和感。
+          それをそのままにせず、道具にして手渡す。
+          方便堂は、僧侶がひとつずつかたちにしてきた「あったらいいな」を届けています。
+        </p>
+        <div class="hoben-note">
+          <b>「方便（ほうべん）」</b>とは、目的にかなうよう工夫された、巧みな手立てのこと。
+          大げさな仕組みでなくていい。現場にすっとなじむ、小さな道具でありたいと考えています。
+        </div>
+      </div>
+      <div class="enso-wrap" aria-hidden="true">
+        <svg class="enso" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+          <path d="M150,40 C205,42 255,88 258,148 C261,203 218,253 158,258 C103,262 56,224 44,168 C35,126 52,84 88,58 C100,49 111,45 120,43" />
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <section class="products wrap" id="products">
+    <div class="section-head">
+      <h2>アプリ一覧</h2>
+      <p>現場から生まれた、ふたつの道具です。</p>
+    </div>
+
+    <article class="product">
+      <div class="product-meta">
+        <span class="badge free">無料配布</span>
+        <div class="h3-row">
+          <img class="icon-badge" src="img/center-icon.jpg" alt="">
+          <h3>祭壇センター出しアプリ</h3>
+        </div>
+        <p class="price-stamp zero">¥0<small>ダウンロード商品</small></p>
+      </div>
+      <div class="product-body">
+        <p class="strong-line">
+          祭壇の中心から位牌が数センチずれるだけで、儀式全体の空気が変わってしまう——
+          そんな違和感を、僧侶として長年感じてきました。
+        </p>
+        <p>
+          葬儀社の方にも、僧侶にも、気軽に使っていただけるよう無料で配布しています。
+          形を整えることは、心を調えること。方便堂は、そのための小さな道具をお届けします。
+        </p>
+        <figure class="product-shot">
+          <img src="img/altar-center.jpg" alt="祭壇の写真に、十字線と黄色い枠でセンター出しの目安が重なって表示されている画面">
+          <figcaption>十字線と枠で、祭壇の中心とのズレをその場で確認できます</figcaption>
+        </figure>
+        <a class="cta secondary" href="https://app.sonaeru-project.jp/center/">
+          センター出しアプリを使ってみる <span class="arrow">→</span>
+        </a>
+      </div>
+    </article>
+
+    <article class="product">
+      <div class="product-meta">
+        <span class="badge paid">買い切り</span>
+        <h3>御詠歌ピッチトレーナー</h3>
+        <p class="price-stamp">¥1,000<small>買い切り・税込</small></p>
+      </div>
+      <div class="product-body">
+        <p class="strong-line">
+          御詠歌を美しく唱えたい。でも、正しい音程が出ているのか自分ではわからない、転調が苦手——
+          そんな声にお応えして作った、ボイストレーニングアプリです。
+        </p>
+        <p>音を捉えることや転調が苦手な方、相対音感トレーニングをしたい方におすすめです。</p>
+        <ul class="features">
+          <li>梅花流詠讃歌完全対応、移動ドのボイトレチューナー</li>
+          <li>スマホ・タブレット・PC完全対応</li>
+          <li>音程・拍子の基礎練習機能で、１符・３符などのトレーニングに最適</li>
+        </ul>
+        <div class="media-row">
+          <figure class="shot">
+            <img src="img/pitch-trainer-screenshot.jpg" alt="ボイトレチューナーの画面。中央に音名と-60セント・283.4Hzの表示、周囲に音名を選ぶボタンが並んでいる">
+            <figcaption>チューナー画面</figcaption>
+          </figure>
+          <figure class="demo">
+            <video src="media/pitch-trainer-demo.mp4" controls preload="metadata"></video>
+            <figcaption>使い方デモ動画</figcaption>
+          </figure>
+        </div>
+        <a class="cta primary" href="https://houbendou.stores.jp/items/6a8858e292675608da8cc541">
+          詳しく見る・購入する <span class="arrow">→</span>
+        </a>
+      </div>
+    </article>
+  </section>
+
+  <section class="about wrap" id="about">
+    <div class="about-inner">
+      <h2>方便堂について</h2>
+      <div>
+        <p>
+          「方便」とは、目的地にたどり着くための、巧みな手立てのこと。
+          方便堂は、僧侶として現場に立つ中で感じてきた「あったらいいな」を、ひとつずつ道具にして届けるお店です。
+        </p>
+        <p>
+          派手な仕組みは目指していません。祭壇の前で、稽古の合間で、そっと役に立つこと。
+          それだけを大切にしています。これからも、現場から生まれる小さな工夫を、少しずつ増やしていく予定です。
+        </p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap footer-inner">
+    <div class="footer-links">
+      <a href="https://houbendou.stores.jp/">方便堂 STORES店舗</a>
+      <a href="https://houbendou.stores.jp/inquiry">お問い合わせ</a>
+      <a href="https://houbendou.stores.jp/tokushoho">特定商取引法に基づく表示</a>
+      <a href="https://houbendou.stores.jp/terms/store">利用規約</a>
+      <a href="https://houbendou.stores.jp/privacy_policy">プライバシーポリシー</a>
+    </div>
+    <p class="footer-credit">方便堂</p>
+  </div>
+</footer>
+
 </body>
 </html>
