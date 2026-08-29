@@ -490,7 +490,7 @@ function updateNoteRingHighlight() {
 // それより外側〜FLAT_SHARP_THRESHOLDまでは、修正不要な許容範囲として何も点灯しない。
 // 数値は暫定値。同期メンバーへのテスト公開時のフィードバックを見て調整する想定。
 function updateFlatSharpArrows(cents) {
-  const PERFECT_THRESHOLD = 3;
+  const PERFECT_THRESHOLD = 5;
   const FLAT_SHARP_THRESHOLD = 8;
   const abs = Math.abs(cents);
 
