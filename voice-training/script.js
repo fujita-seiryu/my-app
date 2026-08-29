@@ -384,23 +384,33 @@ const el = {
    ========================================================= */
 
 function buildBaseNoteOptions() {
+  const saved = loadUserSettings();
   NOTE_NAMES.forEach((note, i) => {
     const opt = document.createElement("option");
     opt.value = String(i);
     opt.textContent = note.label;
     el.baseNote.appendChild(opt);
   });
-  el.baseNote.value = String(DEFAULT_NOTE_INDEX);
+  const savedIndex =
+    saved && saved.baseNoteIndex != null && NOTE_NAMES[saved.baseNoteIndex]
+      ? saved.baseNoteIndex
+      : DEFAULT_NOTE_INDEX;
+  el.baseNote.value = String(savedIndex);
 }
 
 function buildOctaveLayerOptions() {
+  const saved = loadUserSettings();
   OCTAVE_LAYERS.forEach((layer, i) => {
     const opt = document.createElement("option");
     opt.value = String(i);
     opt.textContent = layer.label;
     el.octaveLayer.appendChild(opt);
   });
-  el.octaveLayer.value = String(DEFAULT_OCTAVE_INDEX);
+  const savedIndex =
+    saved && saved.octaveIndex != null && OCTAVE_LAYERS[saved.octaveIndex]
+      ? saved.octaveIndex
+      : DEFAULT_OCTAVE_INDEX;
+  el.octaveLayer.value = String(savedIndex);
 }
 
 function computeBaseFreq() {
@@ -727,6 +737,8 @@ function saveUserSettings() {
       JSON.stringify({
         sensitivity: Number(el.sensitivitySlider.value),
         volume: Number(el.volumeSlider.value),
+        baseNoteIndex: Number(el.baseNote.value),
+        octaveIndex: Number(el.octaveLayer.value),
       })
     );
   } catch {
@@ -1150,8 +1162,14 @@ function playChantPattern() {
 function wireEvents() {
   el.micStartBtn.addEventListener("click", startMic);
 
-  el.baseNote.addEventListener("change", computeBaseFreq);
-  el.octaveLayer.addEventListener("change", computeBaseFreq);
+  el.baseNote.addEventListener("change", () => {
+    computeBaseFreq();
+    saveUserSettings();
+  });
+  el.octaveLayer.addEventListener("change", () => {
+    computeBaseFreq();
+    saveUserSettings();
+  });
 
   el.bpmSlider.addEventListener("input", () => {
     state.metro.bpm = Number(el.bpmSlider.value);
